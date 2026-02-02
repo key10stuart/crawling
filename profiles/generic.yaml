@@ -1,0 +1,43 @@
+# Generic Crawl Profile
+# Fallback when no domain-specific profile is specified
+name: generic
+
+# Path priority scoring (regex patterns)
+priority:
+  high:
+    - /product
+    - /service
+    - /solution
+    - /feature
+    - /pricing
+  medium:
+    - /about
+    - /blog
+    - /resource
+    - /doc
+    - /contact
+  low:
+    - /privacy
+    - /terms
+    - /legal
+    - /sitemap
+    - /cookie
+
+# No expected nav sections - accept whatever we find
+expected_nav_sections: []
+
+# Generic features
+features_of_interest:
+  - login
+  - portal
+  - API
+
+# No industry-specific terms
+industry_terms: []
+
+# Crawl behavior
+settings:
+  max_depth: 2
+  max_pages: 50
+  prioritize_nav: true
+  skip_external: true

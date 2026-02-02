@@ -1,0 +1,15 @@
+default:
+  js_fallback: true
+
+js_headless:
+  method: js
+  headless: true
+
+stealth_patient:
+  method: stealth
+  patient: true
+  delay: 6.0
+
+visible_debug:
+  method: visible
+  headless: false

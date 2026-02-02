@@ -1,0 +1,36 @@
+# Configuration for eval_access.py
+#
+# Run with no arguments: python scripts/eval_access.py
+# Override any setting via CLI: python scripts/eval_access.py --sample-size 3
+
+eval_access:
+  # Site selection
+  default_tier: 1              # Start with tier-1 (most important)
+  sample_size: 5               # How many sites per session
+  include_known_hard: true     # Include at least one known-difficult site
+  shuffle: true                # Randomize order within tier
+
+  # Crawl behavior
+  depth: 0                     # Depth 0 = homepage only (fast validation)
+  auto_escalate: true          # Allow automatic strategy escalation
+  timeout_sec: 60              # Per-site timeout
+
+  # Interactive behavior
+  confirm_strategy: true       # Ask before crawling with detected strategy
+  on_block: prompt             # 'prompt' | 'auto_queue' | 'skip'
+  show_recon_details: true     # Show CDN, framework, signals
+  pause_between_sites: true    # Wait for Enter before next site
+
+  # SLO tracking
+  track_slos: true             # Show running SLO metrics
+  warn_on_slo_breach: true     # Highlight when SLOs are missed
+
+# Known difficult sites (for include_known_hard)
+known_hard_sites:
+  - knight-swift.com           # Has been blocked
+  - fedex.com                   # Complex CDN
+  - ups.com                     # Bot detection
+
+# Sites to skip (broken, irrelevant, etc.)
+skip_sites:
+  - celadongroup.com           # Company defunct

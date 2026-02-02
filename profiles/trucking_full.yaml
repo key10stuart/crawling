@@ -1,0 +1,134 @@
+# Trucking Full Profile (merged trucking + comp_packages)
+# Single-pass crawl for mainline services AND compensation/recruiting content
+name: trucking_full
+
+priority:
+  high:
+    # Mainline services (from trucking)
+    - /service
+    - /solution
+    - /freight
+    - /shipping
+    - /transport
+    - /tracking
+    - /intermodal
+    - /truckload
+    - /ltl
+    - /drayage
+    - /dedicated
+    - /brokerage
+    - /logistics
+    - /technology
+    - /platform
+    - /api
+    # Recruiting/comp (from comp_packages)
+    - /driver
+    - /drivers
+    - /careers
+    - /jobs
+    - /recruit
+    - /recruiting
+    - /apply
+    - /owner-operator
+    - /owner-operators
+    - /lease
+    - /lease-to-own
+    - /carrier
+    - /carriers
+    - /partner-carrier
+    - /benefits
+    - /pay
+    - /compensation
+    - /incentive
+    - /bonus
+    - /per-diem
+    - /home-time
+    - /settlement
+    - /fuel
+    - /detention
+    - /layover
+    - /accessorial
+    # Shipper section (from trucking)
+    - /shipper
+  medium:
+    - /resource
+    - /resources
+    - /blog
+    - /news
+    - /case-study
+    - /about
+    - /company
+    - /contact
+    - /faq
+  low:
+    - /privacy
+    - /terms
+    - /accessibility
+    - /cookie
+    - /legal
+    - /sitemap
+    - /investor
+    - /login
+    - /portal
+    - /track
+    - /quote
+
+expected_nav_sections:
+  # Mainline
+  - solutions
+  - technology
+  - resources
+  - about
+  # Recruiting/comp
+  - drivers
+  - owner operators
+  - carriers
+  - careers
+  - benefits
+  - pay
+  - recruiting
+
+features_of_interest:
+  # Mainline
+  - customer_portal
+  - carrier_portal
+  - tracking
+  - EDI
+  - TMS
+  - API
+  - OAuth
+  # Recruiting
+  - portal
+  - load board
+
+industry_terms:
+  # Mainline
+  - intermodal
+  - truckload
+  - ltl
+  - drayage
+  - dedicated
+  - brokerage
+  - 3pl
+  - supply chain
+  - freight
+  - capacity
+  - visibility
+  # Comp-specific
+  - cpm
+  - cents per mile
+  - sign-on bonus
+  - tuition reimbursement
+  - per diem
+  - home time
+  - fuel surcharge
+  - quick pay
+  - detention
+  - layover
+  - accessorial
+
+settings:
+  max_depth: 2
+  max_pages: 150    # increased to accommodate both content types
+  prioritize_nav: true
+  skip_external: true

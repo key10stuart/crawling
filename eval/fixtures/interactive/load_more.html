@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Load More Test Fixture</title>
+    <style>
+        .news-item { padding: 1rem; border-bottom: 1px solid #eee; }
+        .news-item h3 { margin: 0 0 0.5rem 0; }
+        .news-item .date { color: #666; font-size: 0.9rem; }
+        .hidden { display: none; }
+        .load-more { display: block; margin: 2rem auto; padding: 1rem 2rem; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>Company News</h1>
+    <p>Stay up to date with the latest announcements and industry insights.</p>
+
+    <div class="news-feed">
+        <!-- Initially visible items -->
+        <div class="news-item">
+            <h3>Q4 Earnings Exceed Expectations</h3>
+            <p class="date">January 15, 2026</p>
+            <p>
+                Company reports record revenue of $12.4 billion for Q4 2025, driven by
+                strong demand for intermodal and dedicated services. Operating ratio
+                improved to 85.2%, reflecting continued efficiency gains.
+            </p>
+        </div>
+
+        <div class="news-item">
+            <h3>Fleet Expansion Adds 2,000 Electric Vehicles</h3>
+            <p class="date">January 10, 2026</p>
+            <p>
+                Major investment in electric trucks for last-mile delivery announced.
+                Partnership with leading EV manufacturers will deploy vehicles across
+                50 metropolitan areas by end of 2026.
+            </p>
+        </div>
+
+        <div class="news-item">
+            <h3>New Distribution Center Opens in Phoenix</h3>
+            <p class="date">January 5, 2026</p>
+            <p>
+                State-of-the-art 500,000 square foot facility begins operations,
+                featuring automated sorting, robotics, and solar power generation.
+                Creates 400 new jobs in the region.
+            </p>
+        </div>
+
+        <!-- Hidden items (revealed by Load More) -->
+        <div class="news-item hidden" data-batch="1">
+            <h3>AI-Powered Route Optimization Reduces Fuel Costs</h3>
+            <p class="date">December 20, 2025</p>
+            <p>
+                Machine learning algorithms now optimize routes for entire fleet,
+                resulting in 8% fuel savings and 12% reduction in empty miles.
+                Technology developed in partnership with leading AI research lab.
+            </p>
+        </div>
+
+        <div class="news-item hidden" data-batch="1">
+            <h3>Partnership with Major Retailer Expands Nationwide</h3>
+            <p class="date">December 15, 2025</p>
+            <p>
+                Multi-year agreement extends dedicated transportation services to all
+                regional distribution centers. Contract valued at $500 million annually,
+                includes technology integration and sustainability commitments.
+            </p>
+        </div>
+
+        <div class="news-item hidden" data-batch="1">
+            <h3>Driver Appreciation Week Celebrates 50,000 Professionals</h3>
+            <p class="date">December 10, 2025</p>
+            <p>
+                Annual celebration recognizes the dedication and professionalism of
+                company drivers. Awards presented for safety milestones, customer
+                service excellence, and million-mile achievements.
+            </p>
+        </div>
+
+        <!-- Second batch -->
+        <div class="news-item hidden" data-batch="2">
+            <h3>Cross-Border Operations Expand to Mexico</h3>
+            <p class="date">December 1, 2025</p>
+            <p>
+                New service lanes connect major manufacturing centers in Mexico with
+                distribution networks across the United States. Customs brokerage and
+                compliance services included for seamless cross-border shipping.
+            </p>
+        </div>
+
+        <div class="news-item hidden" data-batch="2">
+            <h3>Sustainability Report Shows 30% Emissions Reduction</h3>
+            <p class="date">November 25, 2025</p>
+            <p>
+                Annual ESG report documents significant progress toward carbon
+                neutrality goals. Initiatives include fleet modernization, renewable
+                energy at facilities, and shipper collaboration programs.
+            </p>
+        </div>
+
+        <div class="news-item hidden" data-batch="2">
+            <h3>Technology Platform Wins Industry Innovation Award</h3>
+            <p class="date">November 20, 2025</p>
+            <p>
+                Proprietary visibility and optimization platform recognized at annual
+                logistics technology conference. Features include predictive analytics,
+                automated exception management, and API integrations.
+            </p>
+        </div>
+    </div>
+
+    <button class="load-more" id="loadMore" aria-label="Load more news">
+        Load More News
+    </button>
+
+    <script>
+        let currentBatch = 0;
+        const maxBatch = 2;
+        const loadMoreBtn = document.getElementById('loadMore');
+
+        loadMoreBtn.addEventListener('click', () => {
+            currentBatch++;
+
+            // Reveal items in current batch
+            document.querySelectorAll(`[data-batch="${currentBatch}"]`).forEach(item => {
+                item.classList.remove('hidden');
+            });
+
+            // Hide button if no more batches
+            if (currentBatch >= maxBatch) {
+                loadMoreBtn.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>

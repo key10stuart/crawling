@@ -1,0 +1,8 @@
+[project]
+name = "scrape_japes"
+version = "0.1.0"
+dependencies = []
+
+[project.scripts]
+japes = "scrape_japes.cli:main"
+

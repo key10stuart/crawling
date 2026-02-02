@@ -1,0 +1,205 @@
+# NVIDIA Crawl Profile
+# Product-focused crawling for GPU/AI hardware + software
+name: nvidia
+
+# Path priority scoring
+priority:
+  high:
+    - /geforce
+    - /rtx
+    - /quadro
+    - /data-center
+    - /tesla
+    - /cuda
+    - /tensorrt
+    - /omniverse
+    - /drive
+    - /jetson
+    - /deep-learning
+    - /ai-platform
+    - /developer
+    - /docs
+    - /sdk
+  medium:
+    - /blog
+    - /technical-blog
+    - /research
+    - /case-study
+    - /solution
+    - /industry
+    - /download
+    - /support
+  low:
+    - /privacy
+    - /terms
+    - /legal
+    - /careers
+    - /investor
+    - /corporate
+
+# Expected nav sections
+expected_nav_sections:
+  - products
+  - solutions
+  - developers
+  - industries
+  - support
+  - shop
+
+# Products to track coverage for
+# Each product has: name, URL patterns, and terms to count
+products:
+  - name: "GeForce RTX"
+    description: "Consumer gaming GPUs"
+    patterns:
+      - /geforce
+      - /rtx
+      - /gaming
+    terms:
+      - geforce
+      - rtx
+      - gaming
+      - dlss
+      - ray tracing
+    page_types:
+      - product
+      - specs
+      - comparison
+
+  - name: "CUDA"
+    description: "Parallel computing platform"
+    patterns:
+      - /cuda
+      - /developer/cuda
+      - /hpc
+    terms:
+      - cuda
+      - parallel computing
+      - gpu computing
+      - nvcc
+    page_types:
+      - docs
+      - api
+      - tutorial
+
+  - name: "TensorRT"
+    description: "Deep learning inference optimizer"
+    patterns:
+      - /tensorrt
+      - /deep-learning-inference
+    terms:
+      - tensorrt
+      - inference
+      - optimization
+      - onnx
+    page_types:
+      - docs
+      - api
+      - benchmark
+
+  - name: "Omniverse"
+    description: "3D simulation and collaboration platform"
+    patterns:
+      - /omniverse
+      - /isaac
+      - /digital-twin
+    terms:
+      - omniverse
+      - simulation
+      - digital twin
+      - isaac
+      - usd
+    page_types:
+      - product
+      - docs
+      - tutorial
+
+  - name: "Data Center / AI"
+    description: "Enterprise AI infrastructure"
+    patterns:
+      - /data-center
+      - /ai-platform
+      - /dgx
+      - /hgx
+      - /a100
+      - /h100
+    terms:
+      - data center
+      - dgx
+      - hgx
+      - a100
+      - h100
+      - enterprise
+      - ai infrastructure
+    page_types:
+      - product
+      - specs
+      - solution
+
+  - name: "Jetson"
+    description: "Edge AI and robotics"
+    patterns:
+      - /jetson
+      - /embedded
+      - /edge-computing
+    terms:
+      - jetson
+      - edge ai
+      - embedded
+      - robotics
+      - nano
+      - orin
+    page_types:
+      - product
+      - docs
+      - devkit
+
+  - name: "DRIVE"
+    description: "Autonomous vehicle platform"
+    patterns:
+      - /drive
+      - /automotive
+      - /self-driving
+    terms:
+      - drive
+      - autonomous
+      - automotive
+      - self-driving
+      - adas
+    page_types:
+      - product
+      - solution
+      - partner
+
+# Features to detect
+features_of_interest:
+  - developer_portal
+  - documentation
+  - API
+  - SDK
+  - download
+  - NGC  # NVIDIA GPU Cloud
+  - pricing
+  - partner_program
+
+# Tech terms
+industry_terms:
+  - gpu
+  - cuda
+  - tensor
+  - deep learning
+  - machine learning
+  - inference
+  - training
+  - ray tracing
+  - dlss
+  - ai
+  - hpc
+  - simulation
+
+# Crawl settings
+settings:
+  max_depth: 3
+  max_pages: 200
+  prioritize_nav: true
+  skip_external: true

@@ -1,0 +1,47 @@
+{
+  "domain": "schneider.com",
+  "url": "https://www.schneider.com",
+  "crawl_start": "2024-01-15T11:00:00Z",
+  "crawl_end": "2024-01-15T11:08:00Z",
+  "snapshot_date": "2024-01-15",
+  "total_word_count": 8750,
+  "access": {
+    "strategy": "js",
+    "blocked": false,
+    "escalations": ["http->js"],
+    "recon": {
+      "cdn": "vercel",
+      "waf": null,
+      "challenge_detected": false,
+      "js_required": true,
+      "js_signals": ["nextjs", "empty_spa_root"]
+    },
+    "notes": "Next.js SPA - requires JS rendering"
+  },
+  "pages": [
+    {
+      "url": "https://www.schneider.com/",
+      "title": "Schneider | Trucking, Intermodal & Logistics",
+      "word_count": 2100,
+      "fetch_method": "playwright"
+    },
+    {
+      "url": "https://www.schneider.com/company",
+      "title": "About Schneider",
+      "word_count": 1850,
+      "fetch_method": "playwright"
+    },
+    {
+      "url": "https://www.schneider.com/services",
+      "title": "Transportation Services",
+      "word_count": 2400,
+      "fetch_method": "playwright"
+    },
+    {
+      "url": "https://www.schneider.com/careers",
+      "title": "Drive with Schneider",
+      "word_count": 2400,
+      "fetch_method": "playwright"
+    }
+  ]
+}

@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Carousel Test Fixture</title>
+    <style>
+        .carousel { position: relative; overflow: hidden; }
+        .carousel-inner { display: flex; transition: transform 0.3s; }
+        .carousel-slide { min-width: 100%; padding: 2rem; box-sizing: border-box; }
+        .carousel-slide:not(.active) { display: none; }
+        .carousel-slide.active { display: block; }
+        .carousel-controls { display: flex; justify-content: center; gap: 1rem; margin-top: 1rem; }
+        .carousel-prev, .carousel-next { padding: 0.5rem 1rem; cursor: pointer; }
+        .carousel-indicators { display: flex; justify-content: center; gap: 0.5rem; margin-top: 0.5rem; }
+        .carousel-indicators button { width: 12px; height: 12px; border-radius: 50%; border: none; background: #ccc; cursor: pointer; }
+        .carousel-indicators button.active { background: #333; }
+    </style>
+</head>
+<body>
+    <h1>Customer Success Stories</h1>
+    <p>See how leading companies have transformed their supply chains with our solutions.</p>
+
+    <div class="carousel" role="region" aria-label="Customer testimonials">
+        <div class="carousel-inner">
+            <div class="carousel-slide active" id="slide1">
+                <h2>Fortune 500 Retailer</h2>
+                <blockquote>
+                    "Partnering with this carrier reduced our transportation costs by 18% while
+                    improving on-time delivery to 98.5%. Their technology platform gives us
+                    unprecedented visibility into our supply chain."
+                </blockquote>
+                <p><strong>Results:</strong></p>
+                <ul>
+                    <li>18% cost reduction in first year</li>
+                    <li>98.5% on-time delivery rate</li>
+                    <li>Real-time tracking for 100% of shipments</li>
+                    <li>Reduced claims by 45%</li>
+                </ul>
+            </div>
+
+            <div class="carousel-slide" id="slide2">
+                <h2>Major Food Manufacturer</h2>
+                <blockquote>
+                    "Temperature control and food safety are critical for our products. This
+                    carrier's reefer fleet and monitoring technology ensure our products arrive
+                    fresh every time."
+                </blockquote>
+                <p><strong>Results:</strong></p>
+                <ul>
+                    <li>Zero temperature excursions in 12 months</li>
+                    <li>FSMA compliance across all shipments</li>
+                    <li>24/7 temperature monitoring and alerts</li>
+                    <li>Dedicated fleet for consistent capacity</li>
+                </ul>
+            </div>
+
+            <div class="carousel-slide" id="slide3">
+                <h2>Automotive Parts Supplier</h2>
+                <blockquote>
+                    "Just-in-time manufacturing requires precise logistics. Their expedited
+                    services and sequenced delivery have eliminated line-down events at our
+                    assembly plants."
+                </blockquote>
+                <p><strong>Results:</strong></p>
+                <ul>
+                    <li>100% on-time for JIT deliveries</li>
+                    <li>Sequenced delivery to 15 assembly plants</li>
+                    <li>EDI integration with plant systems</li>
+                    <li>Reduced inventory carrying costs by 30%</li>
+                </ul>
+            </div>
+
+            <div class="carousel-slide" id="slide4">
+                <h2>E-commerce Giant</h2>
+                <blockquote>
+                    "Peak season used to be our biggest challenge. Their flexible capacity
+                    and last-mile network helped us scale from 50,000 to 200,000 daily
+                    deliveries without missing a beat."
+                </blockquote>
+                <p><strong>Results:</strong></p>
+                <ul>
+                    <li>4x capacity scaling during peak</li>
+                    <li>Same-day delivery in 50 metros</li>
+                    <li>Customer satisfaction score improved 22%</li>
+                    <li>Returns logistics integrated seamlessly</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="carousel-controls">
+            <button class="carousel-prev" aria-label="Previous slide">Previous</button>
+            <button class="carousel-next" aria-label="Next slide">Next</button>
+        </div>
+
+        <div class="carousel-indicators" role="tablist" aria-label="Slide indicators">
+            <button class="active" aria-label="Slide 1" data-slide="0"></button>
+            <button aria-label="Slide 2" data-slide="1"></button>
+            <button aria-label="Slide 3" data-slide="2"></button>
+            <button aria-label="Slide 4" data-slide="3"></button>
+        </div>
+    </div>
+
+    <script>
+        const slides = document.querySelectorAll('.carousel-slide');
+        const indicators = document.querySelectorAll('.carousel-indicators button');
+        let currentSlide = 0;
+
+        function showSlide(index) {
+            slides.forEach(s => s.classList.remove('active'));
+            indicators.forEach(i => i.classList.remove('active'));
+            slides[index].classList.add('active');
+            indicators[index].classList.add('active');
+            currentSlide = index;
+        }
+
+        document.querySelector('.carousel-next').addEventListener('click', () => {
+            showSlide((currentSlide + 1) % slides.length);
+        });
+
+        document.querySelector('.carousel-prev').addEventListener('click', () => {
+            showSlide((currentSlide - 1 + slides.length) % slides.length);
+        });
+
+        indicators.forEach((indicator, index) => {
+            indicator.addEventListener('click', () => showSlide(index));
+        });
+    </script>
+</body>
+</html>

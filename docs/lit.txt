@@ -1,0 +1,324 @@
+Literature + Pro-Grade Extraction Notes
+======================================
+2026-01-25
+
+Purpose
+-------
+Collect key references and practical notes for building a production-grade
+web content extraction pipeline (fetch + extract + quality gates + fallbacks).
+
+High-Level Takeaways
+--------------------
+- No single extractor wins everywhere; pro-grade systems use fallback chains.
+- Extraction quality must be judged post-hoc with quality gates (min words,
+  link density, boilerplate patterns, degenerate checks).
+- JS rendering must be triggered based on extraction quality, not just fetch
+  success (requests -> extract -> if low, Playwright -> re-extract).
+- Always archive raw HTML to allow re-extraction as algorithms improve.
+- Use confidence scoring so downstream systems can adapt (skip, flag, retry).
+
+Core Papers / Methods
+---------------------
+1) Trafilatura (ACL 2021)
+   - Modern extractor with strong benchmark results and metadata extraction.
+   - Good primary extractor in fallback chain.
+   - Paper: "Trafilatura: A Web Scraping Library" (Barbaresi, 2021).
+
+2) Boilerplate Detection (WSDM 2010)
+   - Classic boilerplate removal framework; inspired Boilerpipe.
+   - Emphasizes shallow text features and tag ratios.
+
+3) DOM-based Content Extraction (2011)
+   - Density-based scoring (text density vs link density) still useful
+     as a robust fallback when ML extractors fail.
+
+4) Readability (Arc90)
+   - Practical heuristic for "main content" extraction.
+   - Often used as a fast fallback because it catches certain layouts
+     that trafilatura misses.
+
+5) Dragnet / ML-based extractors
+   - Feature-based ML approaches for content extraction.
+   - Useful for understanding signals beyond heuristics.
+
+6) jusText
+   - Stopword-based boilerplate removal; widely used in corpora building.
+
+7) BoilerNet (DL approach)
+   - Deep learning for boilerplate removal. Strong on some benchmarks
+     but heavier dependencies and less predictable in production.
+
+Benchmarks / Datasets
+---------------------
+- CleanEval: standard boilerplate removal benchmark.
+- ScrapingHub article-extraction benchmark: used in multiple extractor evals.
+- Domain-specific test corpora: critical for regression tests (JS-heavy sites,
+  marketing sites, docs, news).
+
+Production Extractor Stack (Recommended)
+----------------------------------------
+Fetch layer:
+1) requests (fast, low overhead)
+2) Playwright (JS rendering)
+3) Playwright + stealth (anti-bot fallback)
+
+Extract layer:
+1) trafilatura (primary)
+2) readability-lxml (fallback)
+3) density scorer (last resort)
+
+Quality gates:
+- min_words (default 50)
+- max_link_density (default 0.4)
+- boilerplate pattern detection
+- degenerate extraction detection (title-only, too short)
+
+Confidence scoring (example):
+- HIGH: word_count >= 200 AND link_density < 0.3 AND extractor == trafilatura
+- MED:  word_count >= 100 AND link_density < 0.4
+- LOW:  otherwise (still return content + flags)
+
+Common Failure Modes
+--------------------
+- JS-dependent content: HTML shell returns near-empty text.
+- Boilerplate domination: nav/footer/cookie banners outvote main text.
+- Aggressive filters: remove valid content when structure is unusual.
+- Anti-bot blocking: 403/Cloudflare interstitials trigger false "content".
+- Hidden content: tabs/accordions require JS or CSS to reveal.
+
+Implementation Notes
+--------------------
+- Trigger JS fallback after extraction if word_count < min_words.
+- Record fetch_method + extract_method for diagnostics.
+- Archive raw HTML with hashes for later re-extraction.
+- Add regression fixtures for sites like:
+  - WordPress/Divi heavy pages (CSS bloat)
+  - React/SPA shells (J.B. Hunt)
+  - News articles (high content density)
+  - Documentation pages (code blocks)
+
+Local Context (cyberspace/pt1/crawling)
+---------------------------------------
+- fetch/ module already implements the stack:
+  - fetcher.py: requests -> Playwright -> stealth
+  - extractor.py: trafilatura -> readability -> density
+  - quality.py: min words, link density, boilerplate checks
+- Known gap: JS fallback should be triggered based on low extraction output.
+  (requests -> extract -> if low -> Playwright -> re-extract)
+
+Next Actions
+------------
+- Add post-extract JS fallback in fetch_html/fetch_source for JS-heavy sites.
+- Tune thresholds per language/domain once corpus grows.
+- Expand boilerplate patterns with observed failures.
+- Benchmark current pipeline against ScrapingHub dataset.
+- Consider adding goose3 to ensemble for different error profile.
+
+
+================================================================================
+EXTENDED RESEARCH (2026-01-25)
+================================================================================
+
+BENCHMARKS & EVALUATION DATASETS
+--------------------------------
+
+1. ScrapingHub Article Extraction Benchmark
+   - Gold standard dataset + evaluation scripts
+   - Tests body extraction across 12+ libraries
+   - GitHub: https://github.com/scrapinghub/article-extraction-benchmark
+   - Hugging Face: https://huggingface.co/datasets/allenai/scrapinghub-article-extraction-benchmark
+   - 344 stars, MIT license
+   - Evaluates: Zyte, Diffbot, newspaper4k, readability-lxml, dragnet, boilerpipe,
+     html-text, trafilatura, go-trafilatura, goose3, inscriptis, html2text, jusText
+
+2. CleanEval Benchmark
+   - Older but still referenced in literature
+   - Web2Text set SOTA on this benchmark
+   - Reference: https://chuniversiteit.nl/papers/comparison-of-web-content-extraction-algorithms
+
+3. SIGIR 2025 Multilingual Benchmark
+   - New benchmark for multilingual content extraction
+   - Paper: https://maurelf.users.greyc.fr/docs/conferences/SIGIR_2025_paper_1968.pdf
+   - Uses ROUGE-L and Levenshtein distance metrics
+
+
+LIBRARY BENCHMARK SCORES
+------------------------
+
+| Library           | F1     | Precision | Recall | Notes                              |
+|-------------------|--------|-----------|--------|------------------------------------|
+| trafilatura       | 0.958  | 0.938     | 0.978  | Best overall. Active maintenance   |
+| newspaper4k       | 0.949  | 0.964     | 0.934  | News-focused. Fork of newspaper3k  |
+| readability-lxml  | 0.922  | 0.913     | 0.931  | Most predictable (highest median)  |
+| goose3            | ~0.85  | HIGH      | LOW    | Most precise, sacrifices recall    |
+| boilerpipe/py3    | ~0.80  | -         | -      | ML-based, foundational algorithm   |
+| jusText           | ~0.75  | -         | -      | Heuristic, good for short texts    |
+
+Key finding from research:
+"Heuristic extractors perform the best and are most robust across the board,
+whereas the performance of large neural models is surprisingly bad - especially
+on the most complex pages for which they were primarily designed."
+Source: https://chuniversiteit.nl/papers/comparison-of-web-content-extraction-algorithms
+
+
+DEEP LEARNING APPROACHES
+------------------------
+
+1. Web2Text (ECIR 2018)
+   - Authors: Vogels (Disney Research), Ganea (ETH Zurich), Eickhoff (Brown)
+   - Paper: https://health-nlp.com/files/pubs/ecir18a.pdf
+   - Approach: CNN on DOM features + Viterbi for sequence labeling
+   - Performance: F1=0.88, Precision=0.87, Recall=0.90
+   - Speed: 54ms/page (35ms parsing, 19ms inference)
+   - Features: 128 structural + text features (word count, punctuation, stop words)
+   - Limitation: Only works for whitespace-delimited languages
+
+2. BoilerNet
+   - Sequence labeling on DOM features
+   - Reference: https://www.researchgate.net/publication/329061153
+
+3. GROWN+UP
+   - Graph neural network on webpage structure
+   - Pre-training approach for web information retrieval
+
+Key insight: Neural approaches are slower and surprisingly don't beat heuristics
+on complex pages. Heuristics remain state-of-the-art for practical use.
+
+
+COMMERCIAL SERVICES
+-------------------
+
+1. Zyte (formerly ScrapingHub)
+   - Website: https://www.zyte.com/
+   - Strengths:
+     - Best quality per their benchmarks
+     - 2.5x less undesired content than Diffbot
+     - Anti-blocking technology built in
+   - Pricing: Pay-per-use
+   - Blog: https://www.zyte.com/blog/article-data-extraction/
+
+2. Diffbot
+   - Strengths: AI/ML knowledge graphs, automatic structure detection
+   - Limitations: Expensive, no PDF support, scalability concerns
+   - Comparison: https://www.selecthub.com/data-extraction-tools/diffbot-vs-zyte/
+
+3. Apify
+   - News Article Scraper: https://apify.com/proscraper/newsarticlescraper
+   - LLM content extractor: https://apify.com/ai-developer/extract-any-webpage-content-for-llm
+
+
+ENSEMBLE METHODS
+----------------
+
+Research shows weighted voting ensemble outperforms any single extractor:
+
+"Using a weighted voting ensemble where votes from the three best extractors
+(Readability, Trafilatura, and Goose3) count double, all ensembles outperform
+the individual extractors, with the weighted vote ensemble achieving the best
+results."
+
+Source: https://chuniversiteit.nl/papers/comparison-of-web-content-extraction-algorithms
+
+Implementation options:
+1. Run top 3 extractors, weight votes (Readability 2x, Trafilatura 2x, Goose3 2x)
+2. Length-weighted selection (prefer longer extractions passing quality checks)
+3. Confidence-weighted (use extractor with highest confidence for page type)
+
+
+LLM-POWERED EXTRACTION
+----------------------
+
+1. LangExtract (Google)
+   - Open-source Python for AI-powered data extraction
+   - LLMs transform unstructured text -> structured data (JSON, CSV)
+   - Reference: https://medium.com/h7w/data-extraction-made-simple-a-practical-guide-to-langextract-and-llm-powered-parsing-dfa9b179ebff
+
+2. Structured Extraction
+   - "Killer app" for LLMs: article/PDF/screenshot -> JSON/CSV
+   - Reference: https://simonw.substack.com/p/structured-data-extraction-from-unstructured
+
+3. LLM Processing Pipeline
+   After scraping: Cleaning -> Tokenization -> Relevance Filtering -> Synthesis
+
+
+KEY PAPERS
+----------
+
+1. "Trafilatura: A Web Scraping Library and Command-Line Tool for Text
+    Discovery and Extraction" - Barbaresi, 2021
+   - ACL Anthology: https://aclanthology.org/2021.acl-demo.15/
+
+2. "Web2Text: Deep Structured Boilerplate Removal" - Vogels et al., 2018
+   - PDF: https://health-nlp.com/files/pubs/ecir18a.pdf
+
+3. "An Empirical Comparison of Web Content Extraction Algorithms" - SIGIR 2023
+   - ACM: https://dl.acm.org/doi/10.1145/3539618.3591920
+
+4. "Content Extraction via Tag Ratios" - Weninger et al., 2010
+   - CETR algorithm
+
+5. "DOM-based Content Extraction via Text Density" - Sun et al., 2011
+
+6. "Boilerplate Removal and Content Extraction from Dynamic Web Pages"
+   - SSRN: https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3882476
+
+
+ALGORITHMS: TWO PRIMARY APPROACHES
+----------------------------------
+
+1. HEURISTIC APPROACHES
+   Use rules to identify main content blocks:
+   - Text density: len(text) / count(tags)
+   - Link density: len(link_text) / len(total_text)
+   - Word-to-child-node ratios
+   - Positional heuristics (content clusters in middle of DOM)
+
+   Main content: HIGH text density, LOW link density
+   Navigation: LOW text density, HIGH link density
+
+2. MACHINE LEARNING APPROACHES
+   Classify regions as main vs boilerplate:
+   - Boilerpipe: first ML approach, structure + text density features
+   - Sequence labeling methods
+   - Deep neural networks on DOM features
+   - Visual feature classification (render page, analyze layout)
+
+
+RECOMMENDATIONS FOR OUR USE CASES
+---------------------------------
+
+1. CORPUS CRAWLING (corporate sites, mixed page types)
+   - Current approach (trafilatura -> readability -> density) is solid
+   - Add goose3 to ensemble for different error profile
+   - Homepage detection: if extraction < 25% of body, use filtered body
+   - Run against ScrapingHub benchmark to measure actual F1
+
+2. SITREP (news sources)
+   - trafilatura is near-optimal for news articles
+   - Consider Zyte API for high-value sources if budget allows
+   - Metadata extraction (date, author) important for provenance
+
+3. LLM-READY OUTPUT
+   - Use LangExtract or similar for post-processing
+   - Pipeline: extract text -> LLM structures into claims/entities
+   - Clean, structured data reduces hallucinations
+
+
+ADDITIONAL RESOURCES
+--------------------
+
+GitHub Repositories:
+- https://github.com/adbar/trafilatura
+- https://github.com/buriy/python-readability
+- https://github.com/goose3/goose3
+- https://github.com/scrapinghub/article-extraction-benchmark
+- https://github.com/markusmobius/go-trafilatura (Go port)
+
+Evaluation Blog Posts:
+- Trafilatura author: https://adrien.barbaresi.eu/blog/evaluating-text-extraction-python.html
+- Zyte quality: https://www.zyte.com/blog/article-data-extraction/
+- Algorithm comparison: https://chuniversiteit.nl/papers/comparison-of-web-content-extraction-algorithms
+
+Library Comparisons:
+- https://webscraping.fyi/lib/compare/python-newspaper-vs-python-trafilatura/
+- https://blog.apify.com/best-web-scraping-tools/

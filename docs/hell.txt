@@ -1,0 +1,656 @@
+(pt1) keatonstewart@warhorse crawling % docker build -t crawl-xvfb -f Dockerfile.xvfb .
+[+] Building 0.0s (1/1) FINISHED                                                                                            docker:desktop-linux
+ => ERROR [internal] load build definition from Dockerfile.xvfb                                                                             0.0s
+ => => transferring dockerfile: 46B                                                                                                         0.0s
+------
+ > [internal] load build definition from Dockerfile.xvfb:
+------
+ERROR: failed to solve: failed to read dockerfile: error from sender: failed to xattr .claude: permission denied
+(pt1) keatonstewart@warhorse crawling % ./scripts/docker_build.sh
+Building crawl-xvfb image...
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+[+] Building 0.0s (0/1)                                                                                                     docker:desktop-linux
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+[+] Building 0.2s (0/1)                                                                                                     docker:desktop-linux
+ => [internal] load remote build context                                                                                                    0.2s
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+[+] Building 0.3s (0/1)                                                                                                     docker:desktop-linux
+ => [internal] load remote build context                                                                                                    0.3s
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+tar: Couldn't list extended attributes: Permission denied
+[+] Building 70.0s (13/13) FINISHED                                                                                         docker:desktop-linux
+ => [internal] load remote build context                                                                                                    0.3s
+ => copy /context /                                                                                                                         0.0s
+ => [internal] load metadata for docker.io/library/python:3.10-slim                                                                         1.0s
+ => [auth] library/python:pull token for registry-1.docker.io                                                                               0.0s
+ => [1/8] FROM docker.io/library/python:3.10-slim@sha256:f5d029fe39146b08200bcc73595795ac19b85997ad0e5001a02c7c32e8769efa                   1.6s
+ => => resolve docker.io/library/python:3.10-slim@sha256:f5d029fe39146b08200bcc73595795ac19b85997ad0e5001a02c7c32e8769efa                   0.0s
+ => => sha256:504739ee7cb123723854fce934a950e2b639dcc8e1e65896555bb60fcca07419 249B / 249B                                                  0.1s
+ => => sha256:2c9d401eb00e6f227caa003da6b02b55c3777816fcee072d556ff4ba0adb3207 13.77MB / 13.77MB                                            0.6s
+ => => sha256:a99468189f4b0b35b75e0f26d5accb97db4764d8013effeba463a8673eb77303 1.27MB / 1.27MB                                              0.6s
+ => => sha256:d637807aba98f742a62ad9b0146579ceb0297a3c831f56b2361664b7f5fbc75b 30.13MB / 30.13MB                                            1.0s
+ => => extracting sha256:d637807aba98f742a62ad9b0146579ceb0297a3c831f56b2361664b7f5fbc75b                                                   0.4s
+ => => extracting sha256:a99468189f4b0b35b75e0f26d5accb97db4764d8013effeba463a8673eb77303                                                   0.0s
+ => => extracting sha256:2c9d401eb00e6f227caa003da6b02b55c3777816fcee072d556ff4ba0adb3207                                                   0.2s
+ => => extracting sha256:504739ee7cb123723854fce934a950e2b639dcc8e1e65896555bb60fcca07419                                                   0.0s
+ => [2/8] RUN apt-get update && apt-get install -y --no-install-recommends     xvfb     libglib2.0-0     libnss3     libnspr4     libatk1  10.3s
+ => [3/8] WORKDIR /app                                                                                                                      0.0s 
+ => [4/8] COPY requirements.txt /app/requirements.txt                                                                                       0.0s 
+ => [5/8] RUN pip install --no-cache-dir -r /app/requirements.txt                                                                          13.6s 
+ => [6/8] RUN pip install playwright playwright-stealth     && playwright install chromium     && playwright install-deps chromium         18.9s 
+ => [7/8] COPY . /app                                                                                                                       0.1s 
+ => [8/8] RUN echo '#!/bin/bash\nXvfb :99 -screen 0 1920x1080x24 &\nexport DISPLAY=:99\nsleep 1\npython scripts/crawl.py "$@"\n' > /app/ru  0.1s 
+ => exporting to image                                                                                                                     24.0s 
+ => => exporting layers                                                                                                                    19.1s 
+ => => exporting manifest sha256:f56ad1aae0ef7f8219f764d96017f2a236903b2f98f6b20f05ca2e081ce9f473                                           0.0s 
+ => => exporting config sha256:d81f5d65fe18dd72363053a685d5f8a56a75186442cdcd02629db689cb26de0d                                             0.0s 
+ => => exporting attestation manifest sha256:2881c6843fa239bbd4c220c2b303514b322fe26152d39a6d04fa949ae7b12f86                               0.0s
+ => => exporting manifest list sha256:0aa5abdea37939997f8598f49582f6b9a53a32a07ad9adbcdde4163060bd1b8e                                      0.0s
+ => => naming to docker.io/library/crawl-xvfb:latest                                                                                        0.0s
+ => => unpacking to docker.io/library/crawl-xvfb:latest                                                                                     4.9s
+
+Done. Run crawls with:
+  ./scripts/docker_crawl.sh --tier 1 --depth 2 --js-auto
+(pt1) keatonstewart@warhorse crawling % ./scripts/docker_crawl.sh --tier 1 --depth 2 --js-auto
+Building Docker image (first time only)...
+[+] Building 2.4s (13/13) FINISHED                                                                                          docker:desktop-linux
+ => [internal] load remote build context                                                                                                    0.4s
+ => copy /context /                                                                                                                         0.0s
+ => [internal] load metadata for docker.io/library/python:3.10-slim                                                                         0.6s
+ => [auth] library/python:pull token for registry-1.docker.io                                                                               0.0s
+ => [1/8] FROM docker.io/library/python:3.10-slim@sha256:f5d029fe39146b08200bcc73595795ac19b85997ad0e5001a02c7c32e8769efa                   0.0s
+ => => resolve docker.io/library/python:3.10-slim@sha256:f5d029fe39146b08200bcc73595795ac19b85997ad0e5001a02c7c32e8769efa                   0.0s
+ => CACHED [2/8] RUN apt-get update && apt-get install -y --no-install-recommends     xvfb     libglib2.0-0     libnss3     libnspr4     l  0.0s
+ => CACHED [3/8] WORKDIR /app                                                                                                               0.0s
+ => CACHED [4/8] COPY requirements.txt /app/requirements.txt                                                                                0.0s
+ => CACHED [5/8] RUN pip install --no-cache-dir -r /app/requirements.txt                                                                    0.0s
+ => CACHED [6/8] RUN pip install playwright playwright-stealth     && playwright install chromium     && playwright install-deps chromium   0.0s
+ => [7/8] COPY . /app                                                                                                                       0.1s
+ => [8/8] RUN echo '#!/bin/bash\nXvfb :99 -screen 0 1920x1080x24 &\nexport DISPLAY=:99\nsleep 1\npython scripts/crawl.py "$@"\n' > /app/ru  0.1s
+ => exporting to image                                                                                                                      1.1s
+ => => exporting layers                                                                                                                     1.0s
+ => => exporting manifest sha256:ef4cc9ee29f385f19adc1aa43c0cc5491630f4513d8a906a86a8101f3546480d                                           0.0s
+ => => exporting config sha256:50401ef2c9267e76e50eb1c621285664449e6eada8c5d675def10de71bfaf008                                             0.0s
+ => => exporting attestation manifest sha256:da12378039ea2f2eca48b03d23a2cee2570b33c4eb2b211e8b0b060d1cd6e017                               0.0s
+ => => exporting manifest list sha256:98d98bb77edab0370aed302f15c24ac4d773e34cc4aa132b29508fea69c6f2fa                                      0.0s
+ => => naming to docker.io/library/crawl-xvfb:latest                                                                                        0.0s
+ => => unpacking to docker.io/library/crawl-xvfb:latest                                                                                     0.1s
+Build complete.
+
+Starting crawl in Docker container...
+
+docker: Error response from daemon: error while creating mount source path '/host_mnt/Users/Shared/projects/cyberspace/pt1/crawling/schema.py': mkdir /host_mnt/Users/Shared/projects/cyberspace/pt1/crawling/schema.py: file exists
+
+Run 'docker run --help' for more information
+(pt1) keatonstewart@warhorse crawling % ./scripts/docker_crawl.sh --tier 1 --depth 2 --js-auto
+Starting crawl in Docker container...
+
+docker: Error response from daemon: error while creating mount source path '/host_mnt/Users/Shared/projects/cyberspace/pt1/crawling/fetch': mkdir /host_mnt/Users/Shared/projects/cyberspace/pt1/crawling/fetch: file exists
+
+Run 'docker run --help' for more information
+(pt1) keatonstewart@warhorse crawling % ./scripts/docker_crawl.sh --rebuild --tier 1 --depth 2 --js-auto
+Rebuilding Docker image (--rebuild flag)...
+[+] Building 2.1s (13/13) FINISHED                                                                                          docker:desktop-linux
+ => [internal] load remote build context                                                                                                    0.3s
+ => copy /context /                                                                                                                         0.0s
+ => [internal] load metadata for docker.io/library/python:3.10-slim                                                                         0.4s
+ => [auth] library/python:pull token for registry-1.docker.io                                                                               0.0s
+ => [1/8] FROM docker.io/library/python:3.10-slim@sha256:f5d029fe39146b08200bcc73595795ac19b85997ad0e5001a02c7c32e8769efa                   0.0s
+ => => resolve docker.io/library/python:3.10-slim@sha256:f5d029fe39146b08200bcc73595795ac19b85997ad0e5001a02c7c32e8769efa                   0.0s
+ => CACHED [2/8] RUN apt-get update && apt-get install -y --no-install-recommends     xvfb     libglib2.0-0     libnss3     libnspr4     l  0.0s
+ => CACHED [3/8] WORKDIR /app                                                                                                               0.0s
+ => CACHED [4/8] COPY requirements.txt /app/requirements.txt                                                                                0.0s
+ => CACHED [5/8] RUN pip install --no-cache-dir -r /app/requirements.txt                                                                    0.0s
+ => CACHED [6/8] RUN pip install playwright playwright-stealth     && playwright install chromium     && playwright install-deps chromium   0.0s
+ => [7/8] COPY . /app                                                                                                                       0.1s
+ => [8/8] RUN echo '#!/bin/bash\nXvfb :99 -screen 0 1920x1080x24 &\nexport DISPLAY=:99\nsleep 1\npython scripts/crawl.py "$@"\n' > /app/ru  0.1s
+ => exporting to image                                                                                                                      1.1s
+ => => exporting layers                                                                                                                     1.0s
+ => => exporting manifest sha256:3554d23c99218b7aace40ec25bde0dd19bf2d4fcd929c5065657e29186f09851                                           0.0s
+ => => exporting config sha256:85093daec3ee52c886092b06cb9a3a51f334a2170efd591c5b4d3313bfb6abcc                                             0.0s
+ => => exporting attestation manifest sha256:ba812d167c4f3a29304fa3bc9ed62965b1f33e2b8ea6c35e8f1b01f7eb8826c8                               0.0s
+ => => exporting manifest list sha256:88553f4c27e81535ac5f326416e346180440404a119a8f343c142593b404b56f                                      0.0s
+ => => naming to docker.io/library/crawl-xvfb:latest                                                                                        0.0s
+ => => unpacking to docker.io/library/crawl-xvfb:latest                                                                                     0.1s
+Build complete.
+
+Starting crawl in Docker container...
+
+usage: crawl.py [-h] [--domain DOMAIN] [--tier TIER] [--depth DEPTH]
+                [--limit LIMIT] [--js] [--js-fallback] [--stealth]
+                [--no-headless] [--fetch-method {requests,js,stealth,visible}]
+                [--fetch-profile FETCH_PROFILE] [--explain-access]
+                [--delay DELAY] [--patient] [--slow-drip] [--js-auto]
+                [--interactive] [--js-min-words JS_MIN_WORDS]
+                [--profile PROFILE] [--companies COMPANIES]
+                [--run-config RUN_CONFIG] [--run-id RUN_ID] [--incremental]
+                [--freshen INTERVAL] [--jobs JOBS] [--quiet] [--verbose]
+                [--docker] [--docker-rebuild]
+crawl.py: error: unrecognized arguments: python scripts/crawl.py
+(pt1) keatonstewart@warhorse crawling % ./scripts/docker_crawl.sh --rebuild --tier 1 --depth 2 --js-auto                                        
+Rebuilding Docker image (--rebuild flag)...
+[+] Building 2.1s (12/12) FINISHED                                                                                          docker:desktop-linux
+ => [internal] load remote build context                                                                                                    0.3s
+ => copy /context /                                                                                                                         0.0s
+ => [internal] load metadata for docker.io/library/python:3.10-slim                                                                         0.3s
+ => [1/8] FROM docker.io/library/python:3.10-slim@sha256:f5d029fe39146b08200bcc73595795ac19b85997ad0e5001a02c7c32e8769efa                   0.0s
+ => => resolve docker.io/library/python:3.10-slim@sha256:f5d029fe39146b08200bcc73595795ac19b85997ad0e5001a02c7c32e8769efa                   0.0s
+ => CACHED [2/8] RUN apt-get update && apt-get install -y --no-install-recommends     xvfb     libglib2.0-0     libnss3     libnspr4     l  0.0s
+ => CACHED [3/8] WORKDIR /app                                                                                                               0.0s
+ => CACHED [4/8] COPY requirements.txt /app/requirements.txt                                                                                0.0s
+ => CACHED [5/8] RUN pip install --no-cache-dir -r /app/requirements.txt                                                                    0.0s
+ => CACHED [6/8] RUN pip install playwright playwright-stealth     && playwright install chromium     && playwright install-deps chromium   0.0s
+ => [7/8] COPY . /app                                                                                                                       0.1s
+ => [8/8] RUN echo '#!/bin/bash\nXvfb :99 -screen 0 1920x1080x24 &\nexport DISPLAY=:99\nsleep 1\npython scripts/crawl.py "$@"\n' > /app/ru  0.1s
+ => exporting to image                                                                                                                      1.2s
+ => => exporting layers                                                                                                                     1.0s
+ => => exporting manifest sha256:5db041041c8c49508dab1056d61e00f0610664ba0563ca67db98112d59a058f0                                           0.0s
+ => => exporting config sha256:59f0e97b74fb106425404efe2c67a9b6652d38926c90e62df357296ae971e24e                                             0.0s
+ => => exporting attestation manifest sha256:79fdca8fb72d20288f48d7498d1dde90cb36dd037198d84bf243aba67d5f6dfb                               0.0s
+ => => exporting manifest list sha256:bef6a4e54137cdef14d75de12a256401eb94f07e4d7efa8d6cb1b444271b6fd9                                      0.0s
+ => => naming to docker.io/library/crawl-xvfb:latest                                                                                        0.0s
+ => => unpacking to docker.io/library/crawl-xvfb:latest                                                                                     0.1s
+Build complete.
+
+Starting crawl in Docker container...
+
+Traceback (most recent call last):
+  File "/app/scripts/crawl.py", line 1830, in <module>
+    main()
+  File "/app/scripts/crawl.py", line 1724, in main
+    profile = load_profile(args.profile)
+  File "/app/fetch/profile.py", line 180, in load_profile
+    if not profile_path.exists():
+  File "/usr/local/lib/python3.10/pathlib.py", line 1290, in exists
+    self.stat()
+  File "/usr/local/lib/python3.10/pathlib.py", line 1097, in stat
+    return self._accessor.stat(self, follow_symlinks=follow_symlinks)
+PermissionError: [Errno 13] Permission denied: '/app/profiles/trucking.yaml'
+(pt1) keatonstewart@warhorse crawling % ./scripts/docker_crawl.sh --rebuild --tier 1 --depth 2 --js-auto
+Rebuilding Docker image (--rebuild flag)...
+[+] Building 1.9s (12/12) FINISHED                                                                                          docker:desktop-linux
+ => [internal] load remote build context                                                                                                    0.3s
+ => copy /context /                                                                                                                         0.0s
+ => [internal] load metadata for docker.io/library/python:3.10-slim                                                                         0.2s
+ => [1/8] FROM docker.io/library/python:3.10-slim@sha256:f5d029fe39146b08200bcc73595795ac19b85997ad0e5001a02c7c32e8769efa                   0.0s
+ => => resolve docker.io/library/python:3.10-slim@sha256:f5d029fe39146b08200bcc73595795ac19b85997ad0e5001a02c7c32e8769efa                   0.0s
+ => CACHED [2/8] RUN apt-get update && apt-get install -y --no-install-recommends     xvfb     libglib2.0-0     libnss3     libnspr4     l  0.0s
+ => CACHED [3/8] WORKDIR /app                                                                                                               0.0s
+ => CACHED [4/8] COPY requirements.txt /app/requirements.txt                                                                                0.0s
+ => CACHED [5/8] RUN pip install --no-cache-dir -r /app/requirements.txt                                                                    0.0s
+ => CACHED [6/8] RUN pip install playwright playwright-stealth     && playwright install chromium     && playwright install-deps chromium   0.0s
+ => [7/8] COPY . /app                                                                                                                       0.1s
+ => [8/8] RUN echo '#!/bin/bash\nXvfb :99 -screen 0 1920x1080x24 &\nexport DISPLAY=:99\nsleep 1\npython scripts/crawl.py "$@"\n' > /app/ru  0.1s
+ => exporting to image                                                                                                                      1.1s
+ => => exporting layers                                                                                                                     1.0s
+ => => exporting manifest sha256:908f00aa0e15dcd434e4b390d088778679ba296d66469ed2db685080d14cfaa4                                           0.0s
+ => => exporting config sha256:63fb5edd6f420c779fbaddd1f5a470e9a661155587a807a158ceefdfb51ef464                                             0.0s
+ => => exporting attestation manifest sha256:8bb6ff43b79265345787d941355dd8b2afd7f970e322edd9dfd1c660cc1473d0                               0.0s
+ => => exporting manifest list sha256:b3cfc59d543fd44752427240a69cebf02dad3b2555a284270f9985071e26d885                                      0.0s
+ => => naming to docker.io/library/crawl-xvfb:latest                                                                                        0.0s
+ => => unpacking to docker.io/library/crawl-xvfb:latest                                                                                     0.1s
+Build complete.
+
+Starting crawl in Docker container...
+
+^C^C^C
+got 3 SIGTERM/SIGINTs, forcefully exiting
+(pt1) keatonstewart@warhorse crawling % ./scripts/docker_crawl.sh --rebuild --tier 1 --depth 2 --js-auto
+Rebuilding Docker image (--rebuild flag)...
+[+] Building 2.4s (13/13) FINISHED                                                                                                                             docker:desktop-linux
+ => [internal] load remote build context                                                                                                                                       0.3s
+ => copy /context /                                                                                                                                                            0.0s
+ => [internal] load metadata for docker.io/library/python:3.10-slim                                                                                                            0.5s
+ => [auth] library/python:pull token for registry-1.docker.io                                                                                                                  0.0s
+ => [1/8] FROM docker.io/library/python:3.10-slim@sha256:f5d029fe39146b08200bcc73595795ac19b85997ad0e5001a02c7c32e8769efa                                                      0.0s
+ => => resolve docker.io/library/python:3.10-slim@sha256:f5d029fe39146b08200bcc73595795ac19b85997ad0e5001a02c7c32e8769efa                                                      0.0s
+ => CACHED [2/8] RUN apt-get update && apt-get install -y --no-install-recommends     xvfb     libglib2.0-0     libnss3     libnspr4     libatk1.0-0     libatk-bridge2.0-0    0.0s
+ => CACHED [3/8] WORKDIR /app                                                                                                                                                  0.0s
+ => CACHED [4/8] COPY requirements.txt /app/requirements.txt                                                                                                                   0.0s
+ => CACHED [5/8] RUN pip install --no-cache-dir -r /app/requirements.txt                                                                                                       0.0s
+ => CACHED [6/8] RUN pip install playwright playwright-stealth     && playwright install chromium     && playwright install-deps chromium                                      0.0s
+ => [7/8] COPY . /app                                                                                                                                                          0.1s
+ => [8/8] RUN echo '#!/bin/bash\nXvfb :99 -screen 0 1920x1080x24 &\nexport DISPLAY=:99\nsleep 1\npython -u scripts/crawl.py "$@"\n' > /app/run_crawl_xvfb.sh && chmod +x /app  0.1s
+ => exporting to image                                                                                                                                                         1.2s
+ => => exporting layers                                                                                                                                                        1.0s
+ => => exporting manifest sha256:471a36d5ddeff088d7cdc298e4ab935818da6e29fad5daa7c0fabed692853b60                                                                              0.0s
+ => => exporting config sha256:6755d926e8ee2f2b333711436890fe07d0e6befd43c159f4ceb12b90932c6130                                                                                0.0s
+ => => exporting attestation manifest sha256:7487434f9c375565d8769a4398ade463e9a2ba619b7c001ee5b64862daf44d18                                                                  0.0s
+ => => exporting manifest list sha256:df6e56d6c45295909aebb9b6cad9288e51a570c0eae1d8ebeefa5d34ae6f65bb                                                                         0.0s
+ => => naming to docker.io/library/crawl-xvfb:latest                                                                                                                           0.0s
+ => => unpacking to docker.io/library/crawl-xvfb:latest                                                                                                                        0.1s
+Build complete.
+
+Starting crawl in Docker container...
+
+Using profile: trucking
+Crawling 24 carriers (jobs=1)...
+
+Crawling J.B. Hunt Transport (jbhunt.com)
+  Starting at: https://www.jbhunt.com
+  [1 pages crawled...]
+  [nav] Seeded 32 nav links
+  [2 pages crawled...]
+  [3 pages crawled...]
+^C^C^C
+got 3 SIGTERM/SIGINTs, forcefully exiting
+(pt1) keatonstewart@warhorse crawling % ./scripts/docker_crawl.sh --rebuild --tier 1 --depth 2 --js-auto --progress
+Rebuilding Docker image (--rebuild flag)...
+[+] Building 57.5s (13/13) FINISHED                                                                                                                                      docker:desktop-linux
+ => [internal] load remote build context                                                                                                                                                 0.4s
+ => copy /context /                                                                                                                                                                      0.0s
+ => [internal] load metadata for docker.io/library/python:3.10-slim                                                                                                                      0.4s
+ => [auth] library/python:pull token for registry-1.docker.io                                                                                                                            0.0s
+ => [1/8] FROM docker.io/library/python:3.10-slim@sha256:f5d029fe39146b08200bcc73595795ac19b85997ad0e5001a02c7c32e8769efa                                                                0.0s
+ => => resolve docker.io/library/python:3.10-slim@sha256:f5d029fe39146b08200bcc73595795ac19b85997ad0e5001a02c7c32e8769efa                                                                0.0s
+ => CACHED [2/8] RUN apt-get update && apt-get install -y --no-install-recommends     xvfb     libglib2.0-0     libnss3     libnspr4     libatk1.0-0     libatk-bridge2.0-0     libcups  0.0s
+ => CACHED [3/8] WORKDIR /app                                                                                                                                                            0.0s
+ => [4/8] COPY requirements.txt /app/requirements.txt                                                                                                                                    0.1s
+ => [5/8] RUN pip install --no-cache-dir -r /app/requirements.txt                                                                                                                       12.2s
+ => [6/8] RUN pip install playwright playwright-stealth     && playwright install chromium     && playwright install-deps chromium                                                      20.6s 
+ => [7/8] COPY . /app                                                                                                                                                                    0.1s 
+ => [8/8] RUN echo '#!/bin/bash\nXvfb :99 -screen 0 1920x1080x24 &\nexport DISPLAY=:99\nsleep 1\npython -u scripts/crawl.py "$@"\n' > /app/run_crawl_xvfb.sh && chmod +x /app/run_crawl  0.1s 
+ => exporting to image                                                                                                                                                                  23.5s 
+ => => exporting layers                                                                                                                                                                 19.1s 
+ => => exporting manifest sha256:b328ccbcefb1fd896bdf4f909a9dc75784467b6e79c6d938a6d25b5336bb1c5e                                                                                        0.0s 
+ => => exporting config sha256:419f93d1533604bee94a088266cc2349b9fb710ab302cb625e7bb550d6edcd5a                                                                                          0.0s 
+ => => exporting attestation manifest sha256:502a728c51f1d27c0ca0c38649bcd162ed5920d2b7d6ea30f9c9f1130a347607                                                                            0.0s
+ => => exporting manifest list sha256:e78e31b582403faef87fa2b750d8886f2324e3da6ce6681034740ab6867cfdaa                                                                                   0.0s
+ => => naming to docker.io/library/crawl-xvfb:latest                                                                                                                                     0.0s
+ => => unpacking to docker.io/library/crawl-xvfb:latest                                                                                                                                  4.4s
+Build complete.
+
+Starting crawl in Docker container...
+
+Using profile: trucking
+jbhunt.com:   0%|          | 0/24 [00:00<?, ?site/s]
+Crawling J.B. Hunt Transport (jbhunt.com)
+  Starting at: https://www.jbhunt.com
+  [nav] Seeded 32 nav links
+^C^C^Cpages...]
+got 3 SIGTERM/SIGINTs, forcefully exiting
+(pt1) keatonstewart@warhorse crawling % ./scripts/docker_crawl.sh --rebuild --domain jbhunt.com --depth 1
+Rebuilding Docker image (--rebuild flag)...
+[+] Building 2.4s (13/13) FINISHED                                                                                                                                       docker:desktop-linux
+ => [internal] load remote build context                                                                                                                                                 0.4s
+ => copy /context /                                                                                                                                                                      0.0s
+ => [internal] load metadata for docker.io/library/python:3.10-slim                                                                                                                      0.5s
+ => [auth] library/python:pull token for registry-1.docker.io                                                                                                                            0.0s
+ => [1/8] FROM docker.io/library/python:3.10-slim@sha256:f5d029fe39146b08200bcc73595795ac19b85997ad0e5001a02c7c32e8769efa                                                                0.0s
+ => => resolve docker.io/library/python:3.10-slim@sha256:f5d029fe39146b08200bcc73595795ac19b85997ad0e5001a02c7c32e8769efa                                                                0.0s
+ => CACHED [2/8] RUN apt-get update && apt-get install -y --no-install-recommends     xvfb     libglib2.0-0     libnss3     libnspr4     libatk1.0-0     libatk-bridge2.0-0     libcups  0.0s
+ => CACHED [3/8] WORKDIR /app                                                                                                                                                            0.0s
+ => CACHED [4/8] COPY requirements.txt /app/requirements.txt                                                                                                                             0.0s
+ => CACHED [5/8] RUN pip install --no-cache-dir -r /app/requirements.txt                                                                                                                 0.0s
+ => CACHED [6/8] RUN pip install playwright playwright-stealth     && playwright install chromium     && playwright install-deps chromium                                                0.0s
+ => [7/8] COPY . /app                                                                                                                                                                    0.1s
+ => [8/8] RUN echo '#!/bin/bash\nXvfb :99 -screen 0 1920x1080x24 &\nexport DISPLAY=:99\nsleep 1\npython -u scripts/crawl.py "$@"\n' > /app/run_crawl_xvfb.sh && chmod +x /app/run_crawl  0.1s
+ => exporting to image                                                                                                                                                                   1.2s
+ => => exporting layers                                                                                                                                                                  1.0s
+ => => exporting manifest sha256:579e58272431324f761b980b101c58504d3347a3816aaa5b8643df9c15126b2e                                                                                        0.0s
+ => => exporting config sha256:b52a935e73af4b2a49f6cfaf0f9d3f04f9ca593faed6e529e25220cb3bbce723                                                                                          0.0s
+ => => exporting attestation manifest sha256:001c451bc68cf9b336b94b65906d780bfca6d1b16f9214511a3010b1b2f9e431                                                                            0.0s
+ => => exporting manifest list sha256:8ffadccb58667b8f595b4e2c28359323b61dfe4b08fda98ac0eb33c974697766                                                                                   0.0s
+ => => naming to docker.io/library/crawl-xvfb:latest                                                                                                                                     0.0s
+ => => unpacking to docker.io/library/crawl-xvfb:latest                                                                                                                                  0.1s
+Build complete.
+
+Starting crawl in Docker container...
+
+Using profile: trucking
+Skipping 1 recently-crawled sites (--freshen 7d):
+  [fresh] jbhunt.com (45m ago, depth 2)
+All carriers are fresh, nothing to crawl
+(pt1) keatonstewart@warhorse crawling % ./scripts/docker_crawl.sh --tier 1
+Starting crawl in Docker container...
+
+Using profile: trucking
+Skipping 2 recently-crawled sites (--freshen 7d):
+  [fresh] jbhunt.com (48m ago, depth 2)
+  [fresh] knight-swift.com (24m ago, depth 2)
+Sites:   0%|          | 0/22 [00:00<?, ?site/s]
+Crawling Schneider National (schneider.com)
+  Starting at: https://www.schneider.com
+
+Crawling Werner Enterprises (werner.com)
+  Starting at: https://www.werner.com
+
+Crawling XPO Logistics (xpo.com)
+  Starting at: https://www.xpo.com
+Crawling Old Dominion Freight Line (odfl.com)
+  Starting at: https://www.odfl.com
+
+  [js-auto] Static site OK
+  [nav] Seeded 0 nav links
+  [stop] max_pages (100)
+
+  ✓ xpo.com: 100 pages, 77,757 words (992s)
+
+Crawling C.H. Robinson (chrobinson.com)
+  Starting at: https://www.chrobinson.com
+Sites:   5%|▍         | 1/22 [16:32<5:47:12, 992.01s/site, xpo.com: 100 pages]  [docker] Skipping monkey_do (no interactive browser), queuing for later
+
+  ✓ chrobinson.com: 0 pages, 0 words (1s)
+Sites:   9%|▉         | 2/22 [16:32<2:16:19, 408.98s/site, chrobinson.com: 0 pages]
+Crawling Landstar System (landstar.com)
+  Starting at: https://www.landstar.com
+  [nav] Seeded 0 nav links
+^C^C^Cpages...]
+got 3 SIGTERM/SIGINTs, forcefully exiting
+(pt1) keatonstewart@warhorse crawling % ./scripts/docker_crawl.sh --tier 1 --run-config configs/access_test.yaml
+Starting crawl in Docker container...
+
+Traceback (most recent call last):
+  File "/app/scripts/crawl.py", line 1922, in <module>
+    main()
+  File "/app/scripts/crawl.py", line 1743, in main
+    cfg.update(load_run_config(args.run_config))
+  File "/app/scripts/crawl.py", line 226, in load_run_config
+    raise FileNotFoundError(f"Run config not found: {path}")
+FileNotFoundError: Run config not found: configs/access_test.yaml
+(pt1) keatonstewart@warhorse crawling % ./scripts/docker_crawl.sh --rebuild --tier 1 --run-config configs/access_test.yaml
+Rebuilding Docker image (--rebuild flag)...
+[+] Building 2.6s (13/13) FINISHED                                                                                                                                       docker:desktop-linux
+ => [internal] load remote build context                                                                                                                                                 0.4s
+ => copy /context /                                                                                                                                                                      0.0s
+ => [internal] load metadata for docker.io/library/python:3.10-slim                                                                                                                      0.5s
+ => [auth] library/python:pull token for registry-1.docker.io                                                                                                                            0.0s
+ => [1/8] FROM docker.io/library/python:3.10-slim@sha256:f5d029fe39146b08200bcc73595795ac19b85997ad0e5001a02c7c32e8769efa                                                                0.0s
+ => => resolve docker.io/library/python:3.10-slim@sha256:f5d029fe39146b08200bcc73595795ac19b85997ad0e5001a02c7c32e8769efa                                                                0.0s
+ => CACHED [2/8] RUN apt-get update && apt-get install -y --no-install-recommends     xvfb     libglib2.0-0     libnss3     libnspr4     libatk1.0-0     libatk-bridge2.0-0     libcups  0.0s
+ => CACHED [3/8] WORKDIR /app                                                                                                                                                            0.0s
+ => CACHED [4/8] COPY requirements.txt /app/requirements.txt                                                                                                                             0.0s
+ => CACHED [5/8] RUN pip install --no-cache-dir -r /app/requirements.txt                                                                                                                 0.0s
+ => CACHED [6/8] RUN pip install playwright playwright-stealth     && playwright install chromium     && playwright install-deps chromium                                                0.0s
+ => [7/8] COPY . /app                                                                                                                                                                    0.1s
+ => [8/8] RUN echo '#!/bin/bash\nXvfb :99 -screen 0 1920x1080x24 &\nexport DISPLAY=:99\nsleep 1\npython -u scripts/crawl.py "$@"\n' > /app/run_crawl_xvfb.sh && chmod +x /app/run_crawl  0.1s
+ => exporting to image                                                                                                                                                                   1.3s
+ => => exporting layers                                                                                                                                                                  1.1s
+ => => exporting manifest sha256:2a56cd980bee3f4f16d10e216dd05cea1ac4f469cebf96d29d15fd2a9d0e2b40                                                                                        0.0s
+ => => exporting config sha256:69689664d2744931e3a74fac463d4e5abf8f19c659a14753f2afeb61c9ef0ca9                                                                                          0.0s
+ => => exporting attestation manifest sha256:58ba088ab5452484039730fd2b208825320b80ea934efccb989f2254049d0fd3                                                                            0.0s
+ => => exporting manifest list sha256:d80f425d87f7801cb3335d99c3ae6ea12d8507d6c3b9735cd7d80a2d1a662ac8                                                                                   0.0s
+ => => naming to docker.io/library/crawl-xvfb:latest                                                                                                                                     0.0s
+ => => unpacking to docker.io/library/crawl-xvfb:latest                                                                                                                                  0.2s
+Build complete.
+
+Starting crawl in Docker container...
+
+Using profile: trucking
+Skipping 2 recently-crawled sites (--freshen 1h):
+  [fresh] xpo.com (56m ago, depth 2)
+  [fresh] chrobinson.com (40m ago, depth 2)
+Sites:   0%|          | 0/22 [00:00<?, ?site/s]  [js-auto] Static site OK
+  [nav] Seeded 0 nav links
+  [nav] Seeded 0 nav links
+
+  ✓ werner.com: 1 pages, 11 words (5s)
+  [nav] Seeded 2 nav links22 [00:05<01:53,  5.41s/site, werner.com: 1 pages]  [1 pages...]
+  [nav] Seeded 3 nav links
+  [3 pages...]
+  ✓ knight-swift.com: 3 pages, 884 words (25s)
+  [nav] Seeded 32 nav links2 [00:24<04:31, 13.56s/site, knight-swift.com: 3 pages]  [5 pages...]
+  [nav] Seeded 26 nav links
+  [nav] Seeded 38 nav links
+^C^C
+got 3 SIGTERM/SIGINTs, forcefully exiting
+(pt1) keatonstewart@warhorse crawling % ./scripts/docker_crawl.sh --rebuild --run-config configs/access_test.yaml --tier 1
+Rebuilding Docker image (--rebuild flag)...
+[+] Building 2.7s (12/12) FINISHED                                                                                                                                       docker:desktop-linux
+ => [internal] load remote build context                                                                                                                                                 0.5s
+ => copy /context /                                                                                                                                                                      0.0s
+ => [internal] load metadata for docker.io/library/python:3.10-slim                                                                                                                      0.2s
+ => [1/8] FROM docker.io/library/python:3.10-slim@sha256:f5d029fe39146b08200bcc73595795ac19b85997ad0e5001a02c7c32e8769efa                                                                0.1s
+ => => resolve docker.io/library/python:3.10-slim@sha256:f5d029fe39146b08200bcc73595795ac19b85997ad0e5001a02c7c32e8769efa                                                                0.1s
+ => CACHED [2/8] RUN apt-get update && apt-get install -y --no-install-recommends     xvfb     libglib2.0-0     libnss3     libnspr4     libatk1.0-0     libatk-bridge2.0-0     libcups  0.0s
+ => CACHED [3/8] WORKDIR /app                                                                                                                                                            0.0s
+ => CACHED [4/8] COPY requirements.txt /app/requirements.txt                                                                                                                             0.0s
+ => CACHED [5/8] RUN pip install --no-cache-dir -r /app/requirements.txt                                                                                                                 0.0s
+ => CACHED [6/8] RUN pip install playwright playwright-stealth     && playwright install chromium     && playwright install-deps chromium                                                0.0s
+ => [7/8] COPY . /app                                                                                                                                                                    0.2s
+ => [8/8] RUN echo '#!/bin/bash\nXvfb :99 -screen 0 1920x1080x24 &\nexport DISPLAY=:99\nsleep 1\npython -u scripts/crawl.py "$@"\n' > /app/run_crawl_xvfb.sh && chmod +x /app/run_crawl  0.2s
+ => exporting to image                                                                                                                                                                   1.4s
+ => => exporting layers                                                                                                                                                                  1.2s
+ => => exporting manifest sha256:c86fcddcf42aa1c29247e0c69c91ae6f7e1cb9d62800f9ebb0da0c8de05ad463                                                                                        0.0s
+ => => exporting config sha256:3b58f9120783e5548a1d417e1e2a6d731c3252d239df0dec5d38f35955960f9b                                                                                          0.0s
+ => => exporting attestation manifest sha256:f3afc5e90e89451bbfa26a680db9a058ec61af8d6a2a88643a7bde6a67236f66                                                                            0.0s
+ => => exporting manifest list sha256:873d2a18028b0182d3fee92ef74d65144368d46bd8ce3ff765a2edd556a59d76                                                                                   0.0s
+ => => naming to docker.io/library/crawl-xvfb:latest                                                                                                                                     0.0s
+ => => unpacking to docker.io/library/crawl-xvfb:latest                                                                                                                                  0.1s
+Build complete.
+
+Starting crawl in Docker container...
+
+Using profile: trucking
+Skipping 5 recently-crawled sites (--freshen 1h):
+  [fresh] knight-swift.com (1m ago, depth 2)
+  [fresh] werner.com (1m ago, depth 2)
+  [fresh] xpo.com (58m ago, depth 2)
+  [fresh] chrobinson.com (41m ago, depth 2)
+  [fresh] landstar.com (41m ago, depth 2)
+Sites:   0%|          | 0/19 [00:00<?, ?site/s]^C^C^C
+got 3 SIGTERM/SIGINTs, forcefully exiting
+(pt1) keatonstewart@warhorse crawling % ./scripts/docker_crawl.sh --domain schneider.com --depth 0
+Starting crawl in Docker container...
+
+Using profile: trucking
+Sites:   0%|          | 0/1 [00:00<?, ?site/s]^C^C^C
+got 3 SIGTERM/SIGINTs, forcefully exiting
+(pt1) keatonstewart@warhorse crawling % docker kill $(docker ps -q)
+b6500233c0b3
+48077fb908e1
+7a157a3007d4
+0ba86842caea
+8d4cfa9298a7
+4ccad20d6f81
+49041ac83b12
+(pt1) keatonstewart@warhorse crawling % ./scripts/docker_crawl.sh --domain schneider.com --depth 0
+Building Docker image (first time only)...
+[+] Building 2.4s (13/13) FINISHED                                                                                                                                       docker:desktop-linux
+ => [internal] load remote build context                                                                                                                                                 0.4s
+ => copy /context /                                                                                                                                                                      0.0s
+ => [internal] load metadata for docker.io/library/python:3.10-slim                                                                                                                      0.5s
+ => [auth] library/python:pull token for registry-1.docker.io                                                                                                                            0.0s
+ => [1/8] FROM docker.io/library/python:3.10-slim@sha256:f5d029fe39146b08200bcc73595795ac19b85997ad0e5001a02c7c32e8769efa                                                                0.0s
+ => => resolve docker.io/library/python:3.10-slim@sha256:f5d029fe39146b08200bcc73595795ac19b85997ad0e5001a02c7c32e8769efa                                                                0.0s
+ => CACHED [2/8] RUN apt-get update && apt-get install -y --no-install-recommends     xvfb     libglib2.0-0     libnss3     libnspr4     libatk1.0-0     libatk-bridge2.0-0     libcups  0.0s
+ => CACHED [3/8] WORKDIR /app                                                                                                                                                            0.0s
+ => CACHED [4/8] COPY requirements.txt /app/requirements.txt                                                                                                                             0.0s
+ => CACHED [5/8] RUN pip install --no-cache-dir -r /app/requirements.txt                                                                                                                 0.0s
+ => CACHED [6/8] RUN pip install playwright playwright-stealth     && playwright install chromium     && playwright install-deps chromium                                                0.0s
+ => [7/8] COPY . /app                                                                                                                                                                    0.1s
+ => [8/8] RUN echo '#!/bin/bash\nXvfb :99 -screen 0 1920x1080x24 &\nexport DISPLAY=:99\nsleep 1\npython -u scripts/crawl.py "$@"\n' > /app/run_crawl_xvfb.sh && chmod +x /app/run_crawl  0.1s
+ => exporting to image                                                                                                                                                                   1.1s
+ => => exporting layers                                                                                                                                                                  1.0s
+ => => exporting manifest sha256:6721485a0c0631b098d304dc5be39568b0da913ef1726d00d665baefb95c5d68                                                                                        0.0s
+ => => exporting config sha256:ffc349eb1587353f4ad387e2d7296a1379fd05da354e7e16f2a6dbfa35df816d                                                                                          0.0s
+ => => exporting attestation manifest sha256:28c2faa0b2e20d505d6b87b73489d033433b5ad00cb0e415f794856a9e3988f9                                                                            0.0s
+ => => exporting manifest list sha256:7741a44a33ee0def6a565459393747fbfe730dbf66c920cf129865194ccc2cec                                                                                   0.0s
+ => => naming to docker.io/library/crawl-xvfb:latest                                                                                                                                     0.0s
+ => => unpacking to docker.io/library/crawl-xvfb:latest                                                                                                                                  0.1s
+Build complete.
+
+Starting crawl in Docker container...
+
+Using profile: trucking
+^C
+Cleaning up container...
+6944effe7a678677b922a309b7df5c3871ebb212c8211c674af016ad0ab76577
+6944effe7a678677b922a309b7df5c3871ebb212c8211c674af016ad0ab76577
+
+Cleaning up container...
+(pt1) keatonstewart@warhorse crawling % python scripts/crawl.py --domain schneider.com --depth 0 --progress
+Using profile: trucking
+Crawling 1 carriers (jobs=4)...
+^C^CTraceback (most recent call last):
+  File "/Users/Shared/projects/cyberspace/pt1/crawling/scripts/crawl.py", line 2028, in main
+    for future in as_completed(futures):
+  File "/opt/miniconda3/envs/pt1/lib/python3.10/concurrent/futures/_base.py", line 245, in as_completed
+    waiter.event.wait(wait_timeout)
+  File "/opt/miniconda3/envs/pt1/lib/python3.10/threading.py", line 607, in wait
+    signaled = self._cond.wait(timeout)
+  File "/opt/miniconda3/envs/pt1/lib/python3.10/threading.py", line 320, in wait
+    waiter.acquire()
+KeyboardInterrupt
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/Shared/projects/cyberspace/pt1/crawling/scripts/crawl.py", line 2106, in <module>
+    main()
+  File "/Users/Shared/projects/cyberspace/pt1/crawling/scripts/crawl.py", line 2026, in main
+    with ThreadPoolExecutor(max_workers=args.jobs) as executor:
+  File "/opt/miniconda3/envs/pt1/lib/python3.10/concurrent/futures/_base.py", line 649, in __exit__
+    self.shutdown(wait=True)
+  File "/opt/miniconda3/envs/pt1/lib/python3.10/concurrent/futures/thread.py", line 235, in shutdown
+    t.join()
+  File "/opt/miniconda3/envs/pt1/lib/python3.10/threading.py", line 1096, in join
+    self._wait_for_tstate_lock()
+  File "/opt/miniconda3/envs/pt1/lib/python3.10/threading.py", line 1116, in _wait_for_tstate_lock
+    if lock.acquire(block, timeout):
+KeyboardInterrupt
+
+(pt1) keatonstewart@warhorse crawling % python scripts/crawl.py --domain schneider.com --depth 0 --explain-access
+Using profile: trucking
+Crawling 1 carriers (jobs=4)...
+^C^CTraceback (most recent call last):
+  File "/Users/Shared/projects/cyberspace/pt1/crawling/scripts/crawl.py", line 2028, in main
+    for future in as_completed(futures):
+  File "/opt/miniconda3/envs/pt1/lib/python3.10/concurrent/futures/_base.py", line 245, in as_completed
+    waiter.event.wait(wait_timeout)
+  File "/opt/miniconda3/envs/pt1/lib/python3.10/threading.py", line 607, in wait
+    signaled = self._cond.wait(timeout)
+  File "/opt/miniconda3/envs/pt1/lib/python3.10/threading.py", line 320, in wait
+    waiter.acquire()
+KeyboardInterrupt
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/Shared/projects/cyberspace/pt1/crawling/scripts/crawl.py", line 2106, in <module>
+    main()
+  File "/Users/Shared/projects/cyberspace/pt1/crawling/scripts/crawl.py", line 2026, in main
+    with ThreadPoolExecutor(max_workers=args.jobs) as executor:
+  File "/opt/miniconda3/envs/pt1/lib/python3.10/concurrent/futures/_base.py", line 649, in __exit__
+    self.shutdown(wait=True)
+  File "/opt/miniconda3/envs/pt1/lib/python3.10/concurrent/futures/thread.py", line 235, in shutdown
+    t.join()
+  File "/opt/miniconda3/envs/pt1/lib/python3.10/threading.py", line 1096, in join
+    self._wait_for_tstate_lock()
+  File "/opt/miniconda3/envs/pt1/lib/python3.10/threading.py", line 1116, in _wait_for_tstate_lock
+    if lock.acquire(block, timeout):
+KeyboardInterrupt
+
+(pt1) keatonstewart@warhorse crawling % python scripts/crawl.py --domain schneider.com --depth 0 --fetch-method requests --run-config /dev/null
+Traceback (most recent call last):
+  File "/Users/Shared/projects/cyberspace/pt1/crawling/scripts/crawl.py", line 2106, in <module>
+    main()
+  File "/Users/Shared/projects/cyberspace/pt1/crawling/scripts/crawl.py", line 1754, in main
+    cfg.update(load_run_config(args.run_config))
+  File "/Users/Shared/projects/cyberspace/pt1/crawling/scripts/crawl.py", line 235, in load_run_config
+    return json.loads(p.read_text(encoding="utf-8"))
+  File "/opt/miniconda3/envs/pt1/lib/python3.10/json/__init__.py", line 346, in loads
+    return _default_decoder.decode(s)
+  File "/opt/miniconda3/envs/pt1/lib/python3.10/json/decoder.py", line 337, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+  File "/opt/miniconda3/envs/pt1/lib/python3.10/json/decoder.py", line 355, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)

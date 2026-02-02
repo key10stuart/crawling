@@ -1,0 +1,549 @@
+Implementation Plan: Compensation Packages Monitoring (Div 3)
+==============================================================
+
+Goal
+----
+Passive, periodic scrapes to capture trucking companies’ advertised
+compensation packages for drivers and owner‑operators, plus inducements
+for carriers. Output must be human‑readable and bucketed by audience.
+
+Requirements (from user)
+------------------------
+- Company list updates dynamically.
+- Cadence: monthly (or quarterly).
+- Separate buckets: Drivers, Owner‑Operators, Carriers.
+- Human‑readable output (plus machine‑readable if feasible).
+- No explicit site exclusions; respect robots.txt.
+
+Current Additions (2026-01-26)
+-----------------------------
+- Added `profiles/comp_packages.yaml` for crawl priorities tuned to comp pages.
+- Added `scripts/comp_packages_report.py` to generate a bucketed markdown report.
+
+Proposed Implementation
+-----------------------
+1) **Dynamic company list**
+   - Accept a JSON/YAML input list (overrides seeds) for targeted runs.
+   - Allow incremental changes without editing seeds.
+
+2) **Scheduled runs**
+   - Add wrapper script (crawl + report) suitable for cron.
+   - Use `--profile comp_packages` + `--incremental` for diffs.
+
+3) **Diffing + trend detection**
+   - Store prior report snapshots by date.
+   - Compare new vs old per site and per bucket.
+   - Flag additions/removals/changed pay ranges.
+
+4) **Report output**
+   - Markdown summary (default).
+   - Optional JSON output with structured buckets + URL + snippets.
+   - Include "changed since last" flags in report.
+
+5) **Quality checks**
+   - Ensure bucket hits are not empty across key carriers.
+   - Sample checks on driver/owner‑op pages.
+
+Next Steps
+----------
+1) Wire optional `--companies` file input into `scripts/crawl.py`.
+2) Add wrapper `scripts/run_comp_packages.sh` for scheduled runs.
+3) Add `--out-json` option to `scripts/comp_packages_report.py`.
+4) Add diff report between two dates.
+
+Example Questions This System Should Answer
+-------------------------------------------
+- Show top carriers offering sign-on bonuses this month (with amounts if present).
+- Which companies mention “home time” improvements in the last quarter?
+- List carriers offering fuel surcharge programs for owner-operators.
+- Find carriers that added “quick pay” or “fast pay” in the last 90 days.
+- Identify pages mentioning CPM above a threshold (e.g., $0.70/mi).
+- Compare driver benefits between two carriers (medical, 401k, tuition).
+- Detect new carrier-portal features (load board, EDI, tracking) in recent crawls.
+- Show changes in owner-operator lease terms between last crawl and now.
+- Extract and list compensation-related PDFs and links.
+- Which carriers provide detention/layover pay details?
+- Which companies mention pay per stop, accessorials, or guaranteed minimums?
+- List recruiting pages referencing tuition reimbursement or CDL training.
+- Detect if any carrier removed references to sign-on bonuses.
+- Find carriers advertising “new equipment” or “lease-to-own” changes.
+
+Additional Competitive Intelligence Questions
+---------------------------------------------
+- Hiring posture: Which carriers are actively hiring drivers right now vs. quiet?
+- Network expansion: Who opened new terminals or lanes this quarter?
+- Service expansion: Who added new modes (LTL, intermodal, brokerage)?
+- Technology positioning: Which carriers emphasize visibility/AI/real‑time tools?
+- Sustainability claims: Who added/removed ESG or emissions reduction messaging?
+- Pricing posture: Who mentions rate discounts, bids, or spot pricing?
+- Carrier onboarding friction: Who advertises fast onboarding or same‑day setup?
+- Customer segments: Who targets retail vs. manufacturing vs. food/reefer?
+- Differentiators: Who mentions guaranteed capacity, drop trailer, or power‑only?
+- Integrations: Which carriers highlight EDI/API/TMS integrations?
+- Safety: Who emphasizes safety scores, awards, or insurance programs?
+- Disruption: Who added disruption alerts or service advisories?
+- Fleet investment: Who promotes new equipment or electrification?
+
+
+Full-Scale Test Plan (50+ Sites, One Command)
+---------------------------------------------
+Goal: Run a single command that crawls 50+ carriers, produces structured
+outputs (pages + features + comp buckets), and supports aggregation + comparison.
+
+Proposed Command
+----------------
+```
+python scripts/crawl.py --tier 1 --limit 60 --profile comp_packages --depth 2 --incremental
+```
+
+Post-Processing (Structured Output)
+-----------------------------------
+1) Build a unified aggregation report:
+```
+python scripts/comp_packages_report.py --sites corpus/sites/*.json --out corpus/reports/comp_packages_latest.md
+```
+
+2) Optional: JSON output for downstream analytics (add flag in script):
+```
+python scripts/comp_packages_report.py --sites corpus/sites/*.json --out corpus/reports/comp_packages_latest.json --out-json
+```
+
+Validation Checklist
+--------------------
+- At least 50 site JSONs in `corpus/sites/`.
+- Each site has non-empty `pages` and `structured_data`.
+- Report includes all three buckets (drivers, owner_operators, carriers).
+- Spot-check 5 sites against live pages for comp mentions.
+- Compare report deltas vs previous run for changes.
+
+
+Human Evaluation (Crucial)
+--------------------------
+Purpose: verify that bucketed outputs match what a human sees on the site.
+
+**Full guide:** See `docs/human_eval_guide.md` for detailed instructions.
+
+Sampling Plan
+-------------
+- Random sample: 10 sites across tier 1–3.
+- Targeted sample: 5 sites known to have rich recruiting/owner‑op content.
+- Edge cases: 3 JS‑heavy sites + 2 WordPress sites.
+
+Checklist (per site)
+--------------------
+- Drivers: Does the report capture pay/bonus/benefits language shown on site?
+- Owner‑operators: Are lease/settlement/fuel programs captured?
+- Carriers: Are inducements (quick pay, load board, onboarding) captured?
+- Misses: Any obvious comp items on the page not captured?
+- False positives: Any non‑comp content incorrectly tagged?
+
+Scoring
+-------
+- Coverage: 0–3 (none, partial, good, complete)
+- Precision: 0–3 (high false positives → clean)
+- Recency: 0–2 (missed recent changes → captured new items)
+- Total: /8 per site
+
+Pass/Fail Threshold
+-------------------
+- Pass if average ≥6/8 and no site scores <4.
+
+
+Pro-Grade Gaps (What Still Blocks “Pro”)
+----------------------------------------
+- Change tracking: per‑site diffs with attribution (new/removed comp items).
+- Precision/recall tuning: reduce false positives; improve capture on JS content.
+- Coverage verification: consistent human eval pass rates across tiers.
+- Auditability: store URL + snippet + timestamp + source page for every claim.
+- Reliability: stable extraction on tabs/accordions/carousels at scale.
+
+
+Parallel Work Plan (Agent A / Agent B)
+--------------------------------------
+
+Agent A (Codex) — Crawl + orchestration
+---------------------------------------
+Owned files:
+- `scripts/crawl.py`
+- `scripts/comp_packages_report.py`
+- `scripts/run_comp_packages.sh` (new)
+
+Tasks:
+1) Dynamic company list input (`--companies` JSON/YAML) in crawl.
+2) Scheduled wrapper script (crawl + report + timestamped output).
+3) Report JSON output (`--out-json`) + structured buckets with URLs/snippets.
+4) Diff report between two dates (new/removed/changed comp items).
+
+Progress (2026-01-26)
+---------------------
+- Added `--companies` input to `scripts/crawl.py` (JSON/YAML override).
+- Added `scripts/run_comp_packages.sh` (crawl + report + JSON).
+- Added JSON output + diff mode to `scripts/comp_packages_report.py`.
+- Wired `fetch/nlp.py` scoring into `scripts/comp_packages_report.py` (confidence‑filtered snippets).
+- Added test suite (pytest) with core unit tests for comp report, companies loader, render output.
+- Updated report UI layout in `scripts/render_extraction.py` (summary + sidebar nav).
+- Added `--run-config` support in `scripts/crawl.py` (JSON/YAML run configs).
+- Added conditional GET support (ETag/Last‑Modified) to avoid refetching unchanged HTML.
+- Added `--run-id` output namespacing (results stored under `corpus/runs/<run_id>/`).
+
+Current State Summary (2026-01-26)
+----------------------------------
+- **Profiles:** `profiles/comp_packages.yaml` in place; comp‑focused crawl priorities.
+- **Reports:** `scripts/comp_packages_report.py` outputs Markdown + JSON; diff mode supported.
+- **Run configs:** `configs/comp_packages_run.yaml` and `configs/trucking_run.yaml`.
+- **Namespaced outputs:** per‑run outputs in `corpus/runs/<run_id>/`.
+- **Caching:** conditional GET with ETag/Last‑Modified for incremental runs.
+- **Tests:** pytest suite in `tests/` and `pytest.ini` for scope control.
+- **UI:** extraction report layout updated for scanability.
+
+Agent B (Claude) — Extraction quality + eval
+--------------------------------------------
+Owned files:
+- `fetch/interactive.py`
+- `fetch/interaction_plan.py`
+- `fetch/fullpage.py`
+- `fetch/nlp.py`
+- `docs/div3.txt` (human eval rubric)
+
+Tasks:
+1) Improve interaction coverage for tabs/accordions/carousels.
+2) Add precision/recall checks for comp buckets (reduce false positives).
+3) Human eval harness: sampling + scoring worksheet template.
+
+Progress (2026-01-26)
+---------------------
+- Expanded selectors in `fetch/interaction_plan.py`:
+  - Added Bootstrap 5, Material UI, Tailwind/DaisyUI, AEM patterns
+  - Added trucking-specific selectors (benefits, compensation, job sections)
+  - Added Slick, Owl, Splide, Glide carousel support
+  - Added comp-keyword prioritization (interactions prioritize pay/benefit elements)
+- Added precision/recall checks in `fetch/nlp.py`:
+  - `score_comp_mention()` - confidence scoring for money mentions
+  - `filter_comp_mentions()` - filter to likely comp-related
+  - `dedupe_mentions()` - remove duplicate extractions
+  - `classify_audience()` - drivers/owner_operators/carriers/shippers
+  - Context validation with positive/negative keyword lists
+- Created `scripts/human_eval.py` harness:
+  - `--sample` generates stratified sample (random + targeted + edge cases)
+  - `--worksheet` generates Markdown scoring template
+  - `--score` / `--report` processes results with pass/fail
+  - Implements rubric: Coverage (0-3), Precision (0-3), Recency (0-2)
+  - Pass threshold: avg >= 6/8, no site < 4/8
+- Created `eval/` directory with scores template
+
+Collision Avoidance
+-------------------
+- Agent A owns crawl/report/orchestration files only.
+- Agent B owns extraction/interaction modules and eval docs only.
+- Shared changes require explicit handoff note in this doc before edits.
+
+
+Infrastructure Improvements (2026-01-25)
+----------------------------------------
+Session work to prepare crawler for full-scale corpus building.
+
+### 1) Parallel Crawling (`--jobs N`)
+Added ThreadPoolExecutor-based parallel site crawling:
+```bash
+python scripts/crawl.py --tier 1 -j 4 --profile trucking
+```
+- Each site crawls in its own thread
+- Per-site page crawling remains sequential (respects rate limits)
+- Output may interleave but JSON writes are atomic
+
+**Files changed:** `scripts/crawl.py`
+
+### 2) JS Auto-Detection (`--js-auto`)
+Added `fetch/js_detect.py` to detect SPA/JS-heavy sites before crawling.
+
+**Detection signals:**
+- Empty SPA root divs (`<div id="root"></div>`, `<div id="app"></div>`)
+- Framework markers (Next.js, Nuxt, React, Vue, Angular, Svelte)
+- Adobe Experience Manager (AEM) patterns
+- Script-to-content ratio > 50%
+- Noscript warnings ("enable JavaScript")
+- JS bundle patterns (webpack, chunk.js)
+
+**Framework detection patterns:**
+| Framework | Signals |
+|-----------|---------|
+| Next.js | `__NEXT_DATA__`, `_next/static` |
+| Nuxt | `__NUXT__`, `_nuxt/` |
+| React | `data-reactroot`, `react-dom` |
+| Vue | `data-v-*`, `v-cloak` |
+| Angular | `ng-version`, `<app-root` |
+| AEM | `/_jcr_content/`, `/etc.clientlibs/`, `/content/dam/` |
+
+**Strong signals (trigger JS even alone):**
+- AEM detection (enterprise CMS, heavily JS-dependent)
+- Angular detection
+- Noscript warnings
+- Empty body with large HTML
+
+**Test results on trucking sites:**
+```
+jbhunt.com:   ✓ JS (medium) - aem
+schneider.com: ✓ JS (medium) - next.js
+odfl.com:     ✓ JS (medium) - aem
+```
+
+**Usage:**
+```bash
+python scripts/crawl.py --tier 1 -j 4 --js-auto
+```
+If homepage triggers JS detection → entire site uses Playwright.
+
+**Files added:** `fetch/js_detect.py`
+**Files changed:** `scripts/crawl.py`
+
+### 3) Expanded Seeds List (98 carriers)
+Updated `seeds/trucking_carriers.json` from 41 → 98 carriers:
+- Flatbed/heavy haul: TMC, Maverick, Melton, Bennett, Daseke
+- Refrigerated: Lineage, Americold, Stevens, Navajo
+- Bulk/tanker: Quality Carriers, Heniff, Trimac, KAG
+- 3PL/tech: RXO, GXO, project44, FourKites, DAT
+- Cross-border: Grupo Traxión, Castores, Bison, Day & Ross
+- Global: DSV, Kuehne+Nagel, DB Schenker, GEODIS
+
+New categories added: `flatbed`, `reefer`, `bulk`, `crossborder`
+
+### 4) Image & Code Capture Verified
+Confirmed full asset extraction working:
+- JB Hunt (with `--js`): 100 pages, 87K words, 743 images, 99 code blocks
+- Schneider: 10 pages, 9K words, 277 images
+- ODFL: needs re-crawl (old data predates image extraction)
+
+### 5) Content Comparison vs WebFetch
+Validated our static extraction matches WebFetch content fidelity:
+- Both capture nav, hero, CTAs, articles, footer, legal
+- Word count differences are formatting, not missing content
+
+
+Recommended Full Crawl Command
+------------------------------
+```bash
+# Tier 1 carriers (24 sites), parallel, auto-JS detection
+python scripts/crawl.py --tier 1 -j 4 --js-auto --profile trucking
+
+# All carriers (98 sites), with fallback for thin pages
+python scripts/crawl.py -j 8 --js-fallback --js-min-words 200 --profile trucking
+```
+
+Post-crawl report generation:
+```bash
+JOBS=8 bash scripts/test_corpus_reports.sh
+```
+
+
+Competitive Intelligence: Future Modules
+========================================
+
+Beyond compensation packages, competitor websites reveal significant
+business intelligence. Below are additional monitoring modules to consider.
+
+Categories of Competitive Intelligence
+--------------------------------------
+
+| Category | What to Extract | Business Value |
+|----------|-----------------|----------------|
+| Service Coverage | Lanes, service centers, zips served, transit maps | Know where they compete |
+| Pricing Signals | Fuel surcharge tables, accessorials, rate calcs | Benchmark pricing |
+| Technology Stack | API docs, EDI, TMS integrations, tracking | Feature gap analysis |
+| Equipment/Fleet | Truck specs, trailer types, fleet size, for-sale | Capacity intelligence |
+| Customer Wins | Case studies, testimonials, logos, industries | Target their customers |
+| News/Expansion | Press releases, new terminals, M&A, partnerships | Early warning on moves |
+| ESG/Sustainability | Emissions targets, SmartWay, safety awards | RFP differentiators |
+| Recruiting Intensity | Job posting volume, cities, urgency language | Capacity stress signals |
+| Service Changes | New modes, discontinued, rebrands | Market positioning shifts |
+| Leadership | Executive announcements, org changes | Relationship opportunities |
+
+
+Module 1: Service Coverage Monitor
+----------------------------------
+**Goal:** Track where competitors operate and expand.
+
+**Extract:**
+- Service center locations (address, hours, phone)
+- Lane coverage from "where we ship" / "service area" pages
+- Transit time maps / calculators
+- New terminal announcements in newsroom
+
+**Output:**
+- Map overlay of competitor footprints
+- Alert on new terminal openings
+- Coverage gap analysis vs your network
+
+**Pages to target:**
+- /locations, /service-centers, /terminals
+- /where-we-ship, /service-area, /coverage
+- /transit-times, /delivery-map
+
+
+Module 2: Pricing Intelligence
+------------------------------
+**Goal:** Monitor publicly available pricing signals.
+
+**Extract:**
+- Fuel surcharge tables (most publish weekly updates)
+- Accessorial fee schedules (detention, liftgate, residential)
+- Rate calculator inputs/outputs (if public)
+- Tariff PDFs
+
+**Output:**
+- Weekly fuel surcharge comparison table
+- Accessorial benchmark report
+- Alert on pricing structure changes
+
+**Pages to target:**
+- /fuel-surcharge, /fsc
+- /accessorials, /additional-charges
+- /tariffs, /rates, /pricing
+- /resources (often has fee schedules)
+
+**Note:** Many carriers publish fuel surcharge as % or $/gal — need normalization.
+
+
+Module 3: Technology & Integration Tracker
+------------------------------------------
+**Goal:** Inventory competitor digital capabilities.
+
+**Extract:**
+- API documentation presence and endpoints
+- EDI capabilities (204, 214, 210, 990)
+- TMS/ERP integrations mentioned (SAP, Oracle, BluJay, etc.)
+- Tracking features (real-time, predictive ETA, geofencing)
+- Portal features (BOL upload, POD download, reporting)
+
+**Output:**
+- Feature matrix across competitors
+- Integration partnership map
+- Tech capability gap analysis
+
+**Pages to target:**
+- /api, /developers, /integration
+- /edi, /electronic-data-interchange
+- /technology, /platform, /digital
+- /tracking, /visibility
+- /customer-portal, /shipper-tools
+
+
+Module 4: Expansion & Strategy Radar
+------------------------------------
+**Goal:** Early warning on competitor strategic moves.
+
+**Extract:**
+- Press releases: M&A, partnerships, new services
+- Job postings by location (hiring = growing there)
+- "Coming soon" service announcements
+- Executive quotes on strategy
+- Investor presentations (public companies)
+
+**Output:**
+- Weekly digest of competitor announcements
+- Hiring heat map by geography
+- M&A activity tracker
+
+**Pages to target:**
+- /newsroom, /press, /media
+- /careers, /jobs (aggregate by location)
+- /investors (for public cos)
+- /about/leadership
+
+
+Module 5: Customer Intelligence
+-------------------------------
+**Goal:** Identify who competitors serve and how they win.
+
+**Extract:**
+- Case study details (customer name, industry, problem, solution)
+- Customer logos on homepage/about
+- Testimonial quotes with attribution
+- Industry verticals mentioned
+- "Customers we serve" lists
+
+**Output:**
+- Customer list by competitor
+- Industry focus comparison
+- Win theme analysis (what they emphasize)
+
+**Pages to target:**
+- /case-studies, /success-stories
+- /customers, /who-we-serve
+- /industries, /verticals
+- Homepage logo bars
+
+
+Module 6: ESG & Safety Monitor
+------------------------------
+**Goal:** Track sustainability and safety positioning.
+
+**Extract:**
+- Emissions reduction targets and progress
+- SmartWay certification status
+- Safety awards and certifications
+- CSA scores (if published)
+- Sustainability reports (PDF)
+- Green fleet initiatives (EV, alternative fuel)
+
+**Output:**
+- ESG benchmark comparison
+- Safety positioning analysis
+- RFP differentiator inventory
+
+**Pages to target:**
+- /sustainability, /esg, /environment
+- /safety, /csa
+- /corporate-responsibility
+- /about (often has awards)
+
+
+Implementation Priority
+-----------------------
+1. **Pricing Intelligence** — High value, structured data, changes frequently
+2. **Service Coverage** — Strategic, relatively static, one-time build
+3. **Expansion Radar** — Newsroom scraping already supported
+4. **Tech Tracker** — Useful for product/sales teams
+5. **Customer Intel** — Case studies already captured, needs extraction
+6. **ESG Monitor** — Growing RFP importance
+
+
+Data Model Extension
+--------------------
+Each module would add to site JSON:
+
+```python
+'competitive_intel': {
+    'fuel_surcharge': {
+        'effective_date': '2026-01-20',
+        'rate_type': 'percentage',  # or 'per_mile'
+        'rate': 28.5,
+        'source_url': '/fuel-surcharge',
+    },
+    'service_centers': [
+        {'city': 'Atlanta', 'state': 'GA', 'type': 'terminal', ...},
+    ],
+    'integrations': ['SAP TM', 'Oracle OTM', 'EDI 204/214'],
+    'recent_announcements': [
+        {'date': '2026-01-15', 'type': 'expansion', 'summary': '...'},
+    ],
+    'customers_identified': ['Walmart', 'Home Depot', ...],
+    'esg': {
+        'smartway': True,
+        'emissions_target': '50% reduction by 2030',
+    },
+}
+```
+
+
+Questions These Modules Should Answer
+-------------------------------------
+- Which competitors have the best fuel surcharge right now?
+- Who opened new terminals in the Southeast this quarter?
+- Which carriers have public APIs we could integrate with?
+- Who just announced a major customer win in retail?
+- Which competitors are hiring aggressively in Texas?
+- Who has the strongest sustainability positioning for RFPs?
+- What TMS systems do top 10 LTL carriers integrate with?
+- Which competitors removed services from their offerings?
+- Who acquired a company in the last 6 months?
+- What accessorial fees are competitors charging for liftgate?

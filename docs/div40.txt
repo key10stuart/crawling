@@ -1,0 +1,256 @@
+Parallelization Plan: Div 4 (3 Agents)
+======================================
+
+Goal
+----
+Run Div 4a–4e in parallel with minimal file collisions. One agent owns shared
+runtime files; the other two work only on new modules/data/scripts.
+
+Guiding Rule
+------------
+Only Agent 1 edits shared runtime files. Agents 2 and 3 add new files or edit
+their own modules only. Integration happens through Agent 1.
+
+
+Agent 1 — Core Integrator (Shared Files Only)
+--------------------------------------------
+Owns:
+- `scripts/crawl.py`
+- `fetch/config.py`
+- `fetch/fetcher.py`
+- `fetch/cookies.py`
+- `scripts/bootstrap_cookies.py`
+
+Responsibilities:
+- Div 4a: recon + strategy selection + escalation + cookie persistence + diagnostics
+- Div 4d (partial): scheduling integration, proxy config wiring
+- Wire strategy cache and memory hooks
+- Integrate monkey escalation points (callouts only)
+- Provide interface stubs/hooks for Agents 2/3 to call into
+
+Non-Goals:
+- Do not implement monkey system or analytics modules directly
+
+
+Agent 2 — Monkey System + Human Emulation
+-----------------------------------------
+Owns:
+- `fetch/monkey.py`
+- `fetch/human.py`
+- `scripts/monkey.py`
+- `scripts/flow_editor.py`
+- `scripts/flow_diff.py`
+- `scripts/cookie_inspect.py`
+- `scripts/monkey_dashboard.py`
+- `eval/fixtures/human_emulation/`
+
+Responsibilities:
+- Div 4e: monkey_see / monkey_do / queue / replay schedule / perpetual manual
+- Human emulation utilities used by monkey_do
+
+Parallel Work (while waiting for Agent 1 integration):
+- Flow file editor/validator CLI — debug/edit flows without re-recording
+- Flow diff tool — compare old vs new flow for same domain
+- Cookie inspector/refresher — check expiry, test validity, prompt refresh
+- Monkey queue dashboard — rich terminal UI beyond `--list`
+- Human emulation test harness — validate mouse curves, timing distributions
+- Interface stubs — define what hooks you need from crawl.py
+
+Non-Goals:
+- Do not edit `scripts/crawl.py` or `fetch/fetcher.py`
+- Integration points are provided by Agent 1
+
+
+Agent 3 — Playbooks + Analytics + QA + Ops
+------------------------------------------
+Owns:
+- `profiles/access_playbooks.yaml`
+- `profiles/access_policies.yaml`
+- `profiles/eval_config.yaml`
+- `scripts/access_report.py`
+- `scripts/access_drift_report.py`
+- `scripts/eval_interactive.py`
+- `scripts/eval_access.py`
+- `scripts/extraction_report.py`
+- `scripts/seed_coverage.py`
+- `scripts/corpus_health.py`
+- `eval/fixtures/access/`
+- `eval/fixtures/recon/`
+- `docs/access_runbook.md`
+- `docs/access_slos.md`
+- `docs/access_incidents.md`
+- `Dockerfile.eval`
+- `scripts/run_eval_docker.sh`
+
+Responsibilities:
+- Div 4b/4c: playbooks, policy inputs, access analytics, drift detection
+- Div 4d (partial): SLOs, alerting thresholds, runbooks, incident templates
+- Offline QA datasets for recon/strategy validation
+
+Parallel Work (while waiting for Agent 1 integration):
+- Fix eval bugs from Part 12 — report path bug, comp regex too broad
+- Extraction quality dashboard — coverage/precision across corpus
+- Seed coverage analyzer — which seeds have stale/missing crawls
+- Corpus health monitor — stale sites, word count drops, missing pages
+- Offline recon test fixtures — HTML snapshots + expected signals
+- Access failure postmortem templates — ready for ops
+- SLOs + runbooks — docs/access_runbook.md, docs/access_slos.md
+- Integration test skeletons — write failing tests that pass once Agent 1 wires things
+
+Non-Goals:
+- Do not edit runtime core files
+
+
+Collisions to Avoid
+-------------------
+High-risk shared files:
+- `scripts/crawl.py`
+- `fetch/config.py`
+- `fetch/fetcher.py`
+
+If edits are required, route them through Agent 1.
+
+
+Integration Flow
+----------------
+1) Agent 2/3 complete their modules and document expected interfaces.
+2) Agent 1 wires modules into crawl loop and fetch config.
+3) Run focused tests per module, then an end-to-end crawl dry run.
+
+Progress Log
+------------
+Record updates here so agents can coordinate without overlap.
+
+Template:
+- Date (YYYY-MM-DD) — Agent N — scope — files touched — status/notes
+
+Entries:
+- 2026-01-26 — Agent 1 — Div 4a all phases — `scripts/crawl.py`, `fetch/config.py`, `fetch/fetcher.py`, `fetch/recon.py`, `fetch/strategy_cache.py`, `fetch/cookies.py`, `profiles/fetch_profiles.yaml` — implemented per-site fetch config, recon, escalation ladder, strategy cache, access diagnostics, cookies
+- 2026-01-26 — Agent 1 — Div 4e integration + cookie bootstrap — `scripts/crawl.py`, `scripts/bootstrap_cookies.py` — monkey fallback wired into crawl loop, perpetual manual check + queueing, cookie bootstrap CLI
+- 2026-01-26 — Agent 1 — Div 4f Docker crawl — `Dockerfile`, `docker-compose.yml`, `.dockerignore`, `docs/docker_crawling.md` — headless Docker crawl support and usage docs
+- 2026-01-26 — Agent 1 — Div 4f Xvfb crawl — `Dockerfile.xvfb`, `docker-compose.yml`, `docs/docker_crawling.md` — Xvfb-backed crawl image and compose service
+- 2026-01-27 — Agent 1 — Div 4k phases 5-6 — `scripts/crawl.py`, `orchestrate/presenter.py`, `orchestrate/__init__.py`, `docs/div4k.txt` — removed legacy crawl_site, made capture pipeline default, extracted presenter helpers, updated plan status
+- 2026-01-27 — Agent 1 — Capture pipeline provenance — `fetch/lazy_expander.py`, `fetch/capture.py`, `fetch/capture_config.py`, `fetch/extractor.py`, `scripts/crawl.py`, `orchestrate/presenter.py` — added site profile manifest, interaction logs, expansion stats, and propagation into extraction + site JSON
+- 2026-01-26 — Agent 2 — Div 4e complete — `fetch/monkey.py`, `fetch/human.py`, `scripts/monkey.py`, `scripts/flow_editor.py`, `scripts/flow_diff.py`, `scripts/cookie_inspect.py`, `scripts/monkey_dashboard.py`, `eval/fixtures/human_emulation/test_human.py`, `docs/monkey_integration.md` — all deliverables complete, tests passing, ready for Agent 1 integration
+- 2026-01-26 — Agent 3 — Pending items complete — `scripts/access_report.py`, `scripts/access_drift_report.py`, `profiles/access_playbooks.yaml`, `tests/test_access_integration.py`, `eval/fixtures/access/` — access analytics, drift detection, playbooks, integration tests (34 pass, 8 skipped pending full wiring)
+- 2026-01-26 — Agent 3 — Access eval tool — `scripts/eval_access.py`, `profiles/eval_config.yaml`, `Dockerfile.eval`, `scripts/run_eval_docker.sh`, `requirements.txt` — zero-config interactive access layer evaluation with batch mode (-j N for parallel), Docker support for invisible browser execution
+
+
+Acceptance Criteria
+-------------------
+- No concurrent edits on shared runtime files.
+- Each agent delivers working modules in isolation.
+- Agent 1 integrates without merge conflicts.
+
+
+Parallel Work Strategy
+----------------------
+Agents 2/3 have extra tasks to stay productive while Agent 1 integrates:
+
+1) Build tooling and utilities that don't require integration
+2) Write test fixtures and failing integration tests (pass once wired)
+3) Define interface stubs — what hooks do you need from Agent 1?
+4) Write docs and runbooks that don't depend on implementation details
+
+This ensures:
+- No idle time waiting for Agent 1
+- Integration tests ready when Agent 1 delivers hooks
+- Tooling ecosystem is rich from day one
+
+
+Div Assignment Summary
+----------------------
+| Div  | Agent 1 | Agent 2 | Agent 3 |
+|------|---------|---------|---------|
+| 4a   | ✓       |         |         |
+| 4b   |         |         | ✓       |
+| 4c   |         |         | ✓       |
+| 4d   | partial |         | partial |
+| 4e   |         | ✓       |         |
+
+Div 4d split:
+- Agent 1: scheduling integration, proxy config (touches crawl.py)
+- Agent 3: SLOs, alerting, runbooks, incident templates (new docs/scripts)
+
+
+Sprint Progress (2026-01-26)
+----------------------------
+
+### Agent 1 — Core Integrator
+Status: COMPLETE
+
+Delivered:
+- [x] Per-site fetch config parsing
+- [x] Recon module (`fetch/recon.py`)
+- [x] Strategy selection + escalation
+- [x] Cookie persistence (`fetch/cookies.py`)
+- [x] Crawl loop integration hooks
+
+Blockers: (none reported)
+
+
+### Agent 2 — Monkey System
+Status: COMPLETE
+
+Delivered:
+- [x] `fetch/monkey.py` (monkey_see / monkey_do / queue / schedule / perpetual manual)
+- [x] `fetch/human.py` (HumanSession, Bezier mouse curves, timing variance, scroll patterns)
+- [x] `scripts/monkey.py` (CLI: --list, --next, --see, --do, --schedule, --add, --clear)
+- [x] `scripts/flow_editor.py` (--show, --validate, --trim, --remove, --adjust-delays, --export/import)
+- [x] `scripts/flow_diff.py` (compare flow versions)
+- [x] `scripts/cookie_inspect.py` (--list, --show, --check, --expiring, --refresh, --delete)
+- [x] `scripts/monkey_dashboard.py` (rich terminal UI with --watch mode)
+- [x] `eval/fixtures/human_emulation/test_human.py` (6 tests, all passing)
+- [x] `docs/monkey_integration.md` (integration guide for Agent 1)
+
+Blockers: None — ready for Agent 1 to wire escalation hooks into crawl.py
+
+
+### Agent 3 — Playbooks + Analytics + QA + Ops
+Status: COMPLETE
+
+Delivered:
+- [x] `scripts/eval_interactive.py` — fixed path bug, tightened comp regex, added filters
+- [x] `eval/fixtures/recon/` — 10 HTML fixtures + manifest + test harness (all pass)
+- [x] `docs/access_slos.md` — 7 SLOs defined with thresholds
+- [x] `docs/access_runbook.md` — full ops runbook with incident procedures
+- [x] `scripts/access_report.py` — SLO metrics, success/block rates, method distribution
+- [x] `scripts/access_drift_report.py` — compare runs, detect content/access drift
+- [x] `profiles/access_playbooks.yaml` — domain-specific strategy overrides (14 carriers)
+- [x] `tests/test_access_integration.py` — 34 passing, 8 skipped (pending full wiring)
+- [x] `eval/fixtures/access/` — 5 access fixtures + manifest + test harness (all pass)
+- [x] `scripts/eval_access.py` — zero-config access layer eval, batch mode (-j N), SLO tracking
+- [x] `profiles/eval_config.yaml` — eval defaults (sample_size, tier, known_hard_sites)
+- [x] `Dockerfile.eval` + `scripts/run_eval_docker.sh` — invisible browser execution via Xvfb
+
+Blockers: None — all deliverables complete
+
+
+### Integration Readiness
+
+| Component | Agent | Ready for Integration |
+|-----------|-------|----------------------|
+| Recon fixtures | 3 | ✓ Yes — Agent 1 can lift detection logic |
+| SLOs | 3 | ✓ Yes — defines metrics Agent 1 should emit |
+| Runbook | 3 | ✓ Yes — documents expected CLI interface |
+| Monkey core | 2 | ✓ Yes — `fetch/monkey.py` exports ready, see `docs/monkey_integration.md` |
+| Human emulation | 2 | ✓ Yes — `fetch/human.py` tested, 6/6 tests passing |
+| Monkey CLI | 2 | ✓ Yes — all tools working standalone |
+| Crawl hooks | 1 | ✓ Yes — monkey fallback wired in crawl.py, cookie bootstrap CLI added |
+| Access report | 3 | ✓ Yes — `scripts/access_report.py` ready, produces SLO metrics |
+| Drift detection | 3 | ✓ Yes — `scripts/access_drift_report.py` compares crawl runs |
+| Playbooks | 3 | ✓ Yes — `profiles/access_playbooks.yaml` has 14 carrier entries |
+| Integration tests | 3 | ✓ Yes — 34/42 tests pass, 8 skipped for end-to-end wiring |
+| Access fixtures | 3 | ✓ Yes — 5 fixtures covering http/js/stealth/blocked scenarios |
+| Access eval tool | 3 | ✓ Yes — `scripts/eval_access.py` zero-config, batch mode, Docker |
+
+
+References
+----------
+- `docs/div4.txt` (overall vision, architecture, and requirements)
+- `docs/div4a.txt` (adaptive access layer: config + recon + escalation + memory)
+- `docs/div4b.txt` (behavior controls, playbooks, analytics)
+- `docs/div4c.txt` (learning loop, drift detection, safety policies, QA harness)
+- `docs/div4d.txt` (governance, scheduling, SLOs, runbooks)
+- `docs/div4e.txt` (monkey system + human emulation)
+- `docs/stateofplay.txt` (current status and recent changes)

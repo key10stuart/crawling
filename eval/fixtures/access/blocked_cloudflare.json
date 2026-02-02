@@ -1,0 +1,30 @@
+{
+  "domain": "protected-site.com",
+  "url": "https://www.protected-site.com",
+  "crawl_start": "2024-01-15T12:00:00Z",
+  "crawl_end": "2024-01-15T12:02:00Z",
+  "snapshot_date": "2024-01-15",
+  "total_word_count": 45,
+  "access": {
+    "strategy": "js",
+    "blocked": true,
+    "escalations": ["http->js"],
+    "recon": {
+      "cdn": "cloudflare",
+      "waf": "cloudflare",
+      "challenge_detected": true,
+      "js_required": true
+    },
+    "block_signals": ["cloudflare_challenge", "cf_challenge", "status_403", "word_count_low"],
+    "notes": "Cloudflare challenge page - blocked"
+  },
+  "pages": [
+    {
+      "url": "https://www.protected-site.com/",
+      "title": "Just a moment...",
+      "word_count": 45,
+      "fetch_method": "playwright",
+      "error": "challenge_page"
+    }
+  ]
+}

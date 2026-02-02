@@ -1,0 +1,609 @@
+================================================================================
+MEGA GENERAL PURPOSE CRAWLER - ARCHITECTURE PLAN
+================================================================================
+
+Goal: Build an inclusive extraction pipeline that captures text, images, and
+code into a unified, navigable structured output object.
+
+Philosophy: Cast a wide net on EXTRACT, be smart on TRANSFORM, defer LOAD
+decisions until the object model is proven.
+
+================================================================================
+PART 1: EXTRACTION LAYER (Inclusive / Greedy)
+================================================================================
+
+The extractor should capture EVERYTHING that might be useful. Filter later.
+
+1.1 RAW CAPTURE
+---------------
+- Full HTML source (preserved verbatim)
+- HTTP headers (content-type, encoding, cache headers, etags)
+- Response metadata (status, redirects, timing)
+- robots.txt and sitemap.xml per domain (cached)
+
+1.2 DOM EXTRACTION (Greedy)
+---------------------------
+Extract all potentially useful elements, tagged by source location:
+
+TEXT CANDIDATES:
+  - All <p>, <span>, <div> with text content
+  - All headings <h1>-<h6>
+  - List items <li>, <dd>, <dt>
+  - Table cells <td>, <th>
+  - Blockquotes, captions, figcaptions
+  - <article>, <section>, <main>, <aside> wrappers
+  - aria-label, title attributes
+  - Meta description, og:description, twitter:description
+  - Structured data (JSON-LD, microdata, RDFa) - extract as raw JSON
+
+IMAGE CANDIDATES:
+  - All <img> tags: src, srcset, alt, title, width, height
+  - CSS background-image URLs (from inline styles + stylesheets)
+  - <picture> sources
+  - <figure> + <figcaption> associations
+  - <svg> elements (inline or referenced)
+  - <canvas> (flag for potential dynamic content)
+  - Open Graph images, Twitter card images
+  - Favicon / apple-touch-icon
+
+CODE CANDIDATES:
+  - <pre> blocks (with or without <code>)
+  - <code> elements (inline and block)
+  - <script type="application/json"> (config data)
+  - <script type="text/template"> (client templates)
+  - Elements with class hints: .highlight, .syntax, .code, .snippet
+  - GitHub/GitLab specific: .blob-code, .highlight-source-*
+  - Prism.js / highlight.js class patterns
+  - <textarea> with code (common in playgrounds)
+  - data-language, data-lang attributes
+
+1.3 LINK HARVESTING
+-------------------
+- All <a href> for frontier
+- Resource links: <link>, <script src>, <img src>
+- Embedded iframes (flag, may want to recurse)
+- data-* attributes containing URLs
+
+1.4 STRUCTURAL MARKERS
+----------------------
+Capture DOM position info for everything:
+  - XPath
+  - CSS selector path
+  - Parent section/heading context
+  - DOM depth
+  - Sibling index
+  - Approximate viewport position (if rendered)
+
+================================================================================
+PART 2: TRANSFORM LAYER (Smart / Contextual)
+================================================================================
+
+This is where the real logic lives. Take the greedy extraction and produce
+clean, typed, navigable output.
+
+2.1 CONTENT CLASSIFICATION
+--------------------------
+
+TEXT TRANSFORM:
+  - Main content detection (readability-style algorithm)
+  - Boilerplate removal (nav, footer, sidebar, ads)
+  - Language detection per block
+  - Sentence/paragraph segmentation
+  - Semantic role tagging (intro, conclusion, list, quote)
+  - Entity extraction (optional, for enrichment)
+
+IMAGE TRANSFORM:
+  - URL resolution (relative -> absolute)
+  - Dedupe by URL hash
+  - Size filtering (skip 1x1 trackers, tiny icons unless favicon)
+  - Context extraction:
+    - Nearest heading
+    - Surrounding paragraph text
+    - Figure caption
+    - Alt text quality score
+  - Image type classification (photo, diagram, screenshot, icon, logo)
+  - Lazy-load resolution (data-src, data-lazy patterns)
+
+CODE TRANSFORM:
+  - Language detection:
+    - Explicit: class="language-python", data-lang="js"
+    - Heuristic: syntax patterns, keywords, file extension hints
+  - Inline vs block classification
+  - Context extraction:
+    - Preceding explanation paragraph
+    - Associated heading
+    - Filename hints (if present)
+  - Normalization:
+    - Strip line numbers if baked into text
+    - Normalize indentation
+    - Detect and flag truncated snippets ("...")
+  - Syntax validation (optional, flag broken code)
+
+2.2 STRUCTURE RECONSTRUCTION
+----------------------------
+Build the navigable document tree:
+
+Document
+  -> Sections (by heading hierarchy)
+     -> Blocks (ordered by DOM position)
+        -> TextBlock | ImageBlock | CodeBlock
+
+Preserve:
+  - Original order (critical for context)
+  - Parent-child relationships
+  - Cross-references (e.g., "see Figure 3")
+
+2.3 QUALITY SIGNALS
+-------------------
+Compute per-block and per-document:
+  - Content density score
+  - Code-to-text ratio
+  - Image relevance score
+  - Duplication flags (near-duplicate detection)
+  - Extraction confidence
+
+================================================================================
+PART 3: OUTPUT OBJECT SCHEMA
+================================================================================
+
+3.1 CORE TYPES
+--------------
+
+```
+CrawlResult {
+  id: string (uuid)
+  url: string
+  canonical_url: string | null
+  crawled_at: timestamp
+  http_status: int
+  content_type: string
+
+  document: Document | null  // null if non-HTML or failed parse
+  raw_html: bytes | ref      // stored separately, reference here
+
+  meta: DocumentMeta
+  quality: QualitySignals
+  links: ExtractedLinks
+}
+
+Document {
+  title: string
+  language: string | null
+  sections: Section[]
+}
+
+Section {
+  id: string
+  heading: string | null
+  level: int (1-6, 0 for implicit)
+  children: (Section | ContentBlock)[]
+}
+
+ContentBlock = TextBlock | ImageBlock | CodeBlock
+
+TextBlock {
+  type: "text"
+  content: string
+  html_tag: string
+  position: Position
+  word_count: int
+}
+
+ImageBlock {
+  type: "image"
+  src: string
+  src_resolved: string
+  alt: string | null
+  caption: string | null
+  context_summary: string | null
+  dimensions: {width, height} | null
+  classification: "photo" | "diagram" | "screenshot" | "icon" | "unknown"
+  position: Position
+}
+
+CodeBlock {
+  type: "code"
+  content: string
+  language: string | null
+  language_confidence: float
+  is_inline: bool
+  context_summary: string | null
+  line_count: int
+  position: Position
+}
+
+Position {
+  xpath: string
+  dom_index: int
+  section_path: string[]  // ["Introduction", "Setup"]
+}
+
+DocumentMeta {
+  description: string | null
+  author: string | null
+  published_date: string | null
+  modified_date: string | null
+  og_image: string | null
+  structured_data: json | null
+}
+
+QualitySignals {
+  content_density: float
+  boilerplate_ratio: float
+  code_block_count: int
+  image_count: int
+  extraction_confidence: float
+  is_soft_404: bool
+}
+
+ExtractedLinks {
+  internal: string[]
+  external: string[]
+  resources: string[]
+}
+```
+
+3.2 NAVIGATION API (Conceptual)
+-------------------------------
+
+```
+doc.all_text() -> TextBlock[]
+doc.all_images() -> ImageBlock[]
+doc.all_code() -> CodeBlock[]
+doc.all_code(language="python") -> CodeBlock[]
+
+doc.section("Installation") -> Section | null
+doc.sections_containing_code() -> Section[]
+
+block.preceding_text() -> TextBlock | null
+block.following_text() -> TextBlock | null
+block.parent_section() -> Section
+
+image.context_paragraph() -> TextBlock | null
+code.explanation() -> TextBlock | null
+```
+
+================================================================================
+PART 4: IMPLEMENTATION PHASES
+================================================================================
+
+PHASE 1: EXTRACTION FOUNDATION
+------------------------------
+[ ] HTTP fetcher with async support (httpx/aiohttp)
+[ ] Basic HTML parser (BeautifulSoup or lxml)
+[ ] Greedy element extraction (all text/image/code candidates)
+[ ] Position tracking (xpath, dom index)
+[ ] Raw storage (HTML to disk/S3)
+
+PHASE 2: TRANSFORM PIPELINE
+---------------------------
+[ ] Main content detector (port readability or use trafilatura)
+[ ] Text block segmentation and cleaning
+[ ] Image extractor with context capture
+[ ] Code extractor with language detection
+[ ] Structure builder (heading hierarchy -> sections)
+
+PHASE 3: OUTPUT OBJECT
+----------------------
+[ ] Define dataclasses / pydantic models
+[ ] Serialization (JSON, msgpack)
+[ ] Basic navigation methods
+[ ] Unit tests with sample pages
+
+PHASE 4: QUALITY & EDGE CASES
+-----------------------------
+[ ] Soft-404 detection
+[ ] Near-duplicate detection (simhash)
+[ ] JS-rendered page handling (playwright integration)
+[ ] Encoding edge cases (mojibake detection)
+[ ] Malformed HTML resilience
+
+PHASE 5: SCALE PREP (future)
+----------------------------
+[ ] URL frontier with politeness
+[ ] Distributed worker architecture
+[ ] Storage strategy decisions (based on access patterns)
+[ ] Monitoring and observability
+
+================================================================================
+PART 5: FILE STRUCTURE
+================================================================================
+
+service/crawling/
+├── __init__.py
+├── config.py                 # Settings, timeouts, thresholds
+│
+├── fetch/
+│   ├── __init__.py
+│   ├── client.py             # HTTP client wrapper
+│   ├── robots.py             # robots.txt parser/cache
+│   └── browser.py            # Playwright for JS pages (later)
+│
+├── extract/
+│   ├── __init__.py
+│   ├── dom.py                # DOM parsing, element iteration
+│   ├── text.py               # Text candidate extraction
+│   ├── images.py             # Image candidate extraction
+│   ├── code.py               # Code candidate extraction
+│   ├── links.py              # Link harvesting
+│   └── meta.py               # Metadata extraction
+│
+├── transform/
+│   ├── __init__.py
+│   ├── pipeline.py           # Orchestrates transforms
+│   ├── content_detector.py   # Main content vs boilerplate
+│   ├── text_transform.py     # Text cleaning, segmentation
+│   ├── image_transform.py    # Image filtering, context
+│   ├── code_transform.py     # Language detection, normalization
+│   ├── structure.py          # Section/heading hierarchy
+│   └── quality.py            # Quality signal computation
+│
+├── model/
+│   ├── __init__.py
+│   ├── types.py              # Core dataclasses/pydantic models
+│   ├── document.py           # Document, Section, Block types
+│   └── navigation.py         # Navigation/query methods
+│
+├── store/                    # Placeholder for future
+│   ├── __init__.py
+│   └── raw.py                # Raw HTML storage
+│
+└── tests/
+    ├── __init__.py
+    ├── fixtures/             # Sample HTML pages
+    ├── test_extract.py
+    ├── test_transform.py
+    └── test_model.py
+
+================================================================================
+PART 6: POLITENESS LAYER (v0 Essentials)
+================================================================================
+
+Even for v0, be a good citizen. These are low-effort, high-impact.
+
+6.1 ROBOTS.TXT
+--------------
+```
+class RobotsCache:
+    """Cache robots.txt per domain, respect disallow rules."""
+
+    def __init__(self, ttl_seconds: int = 3600):
+        self._cache: dict[str, tuple[RobotFileParser, float]] = {}
+        self.ttl = ttl_seconds
+
+    def can_fetch(self, url: str, user_agent: str = "*") -> bool:
+        domain = urlparse(url).netloc
+        parser = self._get_parser(domain)
+        return parser.can_fetch(user_agent, url)
+
+    def crawl_delay(self, domain: str, user_agent: str = "*") -> float | None:
+        parser = self._get_parser(domain)
+        return parser.crawl_delay(user_agent)
+
+    def _get_parser(self, domain: str) -> RobotFileParser:
+        now = time.time()
+        if domain in self._cache:
+            parser, fetched_at = self._cache[domain]
+            if now - fetched_at < self.ttl:
+                return parser
+
+        parser = RobotFileParser()
+        parser.set_url(f"https://{domain}/robots.txt")
+        try:
+            parser.read()
+        except Exception:
+            pass  # Assume allowed if can't fetch
+        self._cache[domain] = (parser, now)
+        return parser
+```
+
+6.2 RATE LIMITING
+-----------------
+```
+class DomainRateLimiter:
+    """Per-domain rate limiting with configurable defaults."""
+
+    def __init__(self, default_delay: float = 1.0, robots_cache: RobotsCache = None):
+        self.default_delay = default_delay
+        self.robots = robots_cache
+        self._last_request: dict[str, float] = {}
+
+    async def wait(self, domain: str):
+        # Check robots.txt crawl-delay first
+        delay = self.default_delay
+        if self.robots:
+            robots_delay = self.robots.crawl_delay(domain)
+            if robots_delay:
+                delay = max(delay, robots_delay)
+
+        # Enforce delay since last request to this domain
+        now = time.time()
+        if domain in self._last_request:
+            elapsed = now - self._last_request[domain]
+            if elapsed < delay:
+                await asyncio.sleep(delay - elapsed)
+
+        self._last_request[domain] = time.time()
+```
+
+6.3 URL CANONICALIZATION
+------------------------
+```
+def canonicalize_url(url: str) -> str:
+    """Normalize URL for deduplication."""
+    parsed = urlparse(url)
+
+    # Lowercase scheme and host
+    scheme = parsed.scheme.lower()
+    host = parsed.netloc.lower().removeprefix('www.')
+
+    # Normalize path
+    path = parsed.path.rstrip('/') or '/'
+
+    # Sort query params, remove tracking params
+    STRIP_PARAMS = {'utm_source', 'utm_medium', 'utm_campaign', 'utm_content',
+                    'fbclid', 'gclid', 'ref', 'source'}
+    if parsed.query:
+        params = parse_qs(parsed.query, keep_blank_values=True)
+        params = {k: v for k, v in params.items() if k not in STRIP_PARAMS}
+        query = urlencode(sorted(params.items()), doseq=True)
+    else:
+        query = ''
+
+    # Rebuild (drop fragment)
+    return f"{scheme}://{host}{path}{'?' + query if query else ''}"
+```
+
+6.4 CONTENT HASHING
+-------------------
+```
+def content_hash(html: str) -> str:
+    """Hash content for change detection / dedup."""
+    # Strip whitespace variations for stable hash
+    normalized = ' '.join(html.split())
+    return hashlib.sha256(normalized.encode()).hexdigest()[:16]
+```
+
+6.5 USER AGENT
+--------------
+Always identify yourself:
+```
+USER_AGENT = "ProjectACrawler/0.1 (Research; contact@example.com)"
+```
+
+Include:
+- Bot name
+- Version
+- Purpose hint
+- Contact info
+
+================================================================================
+PART 7: COMPARISON - SUGGESTION vs EXISTING CODEBASE
+================================================================================
+
+Current codebase in service/crawling/:
+  - schema.py          : Page/Section/Site models (trucking-specific)
+  - scripts/crawl.py   : Working BFS crawler with Playwright fallback
+  - scripts/analyze.py : Term frequency, ngrams, "mean website" analysis
+  - corpus/            : Raw HTML + extracted JSON per site
+  - seeds/             : Carrier seed list
+
+FEATURE COMPARISON
+------------------
+
+| Feature                    | Existing      | Suggestion    | Gap          |
+|----------------------------|---------------|---------------|--------------|
+| HTTP fetching              | ✅ requests   | ✅ httpx/aiohttp | Minor (async)|
+| JS rendering               | ✅ Playwright | ✅ Playwright | None         |
+| robots.txt parsing         | ❌            | ✅            | ADD          |
+| Per-domain rate limiting   | Partial (3s)  | ✅            | ENHANCE      |
+| URL canonicalization       | Partial       | ✅            | ENHANCE      |
+| Content hashing            | ❌            | ✅            | ADD          |
+| DOM parsing                | ✅ lxml/BS4   | ✅ lxml/BS4   | None         |
+| Text extraction            | ✅ density    | ✅ density    | None         |
+| Image extraction           | ❌            | ✅            | ADD          |
+| Code block extraction      | ❌            | ✅            | ADD          |
+| Position tracking (xpath)  | ❌            | ✅            | ADD          |
+| Section hierarchy          | Partial       | ✅ recursive  | ENHANCE      |
+| Language detection         | ❌            | ✅            | ADD          |
+| Structured output model    | ✅ (trucking) | ✅ (general)  | GENERALIZE   |
+| Term counting              | ✅            | Optional      | Keep         |
+| Raw HTML storage           | ✅            | ✅            | None         |
+| Analysis tools             | ✅            | Separate      | Keep         |
+
+WHAT TO KEEP FROM EXISTING
+--------------------------
+1. The BFS crawl structure (crawl.py:283-377) - solid foundation
+2. Content density scoring (crawl.py:206-224) - works well
+3. Playwright integration (crawl.py:95-133) - already battle-tested
+4. Page type classification (crawl.py:168-175) - useful heuristic
+5. Analysis module (analyze.py) - valuable, just extend it
+6. Corpus directory structure - sensible layout
+
+WHAT TO ADD
+-----------
+1. RobotsCache class (new: fetch/robots.py)
+2. DomainRateLimiter (new: fetch/politeness.py)
+3. URL canonicalization (enhance: fetch/client.py)
+4. Content hashing (new: transform/quality.py)
+5. ImageBlock extraction (new: extract/images.py)
+6. CodeBlock extraction (new: extract/code.py)
+7. Position tracking with xpath (new: extract/dom.py)
+8. Generalized output schema (refactor: model/types.py)
+
+WHAT TO REFACTOR
+----------------
+1. schema.py → model/types.py
+   - Keep Page/Section/Site as aliases or extend
+   - Add TextBlock/ImageBlock/CodeBlock
+   - Add Position type
+
+2. crawl.py → split into:
+   - fetch/client.py (HTTP + Playwright)
+   - extract/dom.py (element iteration)
+   - extract/text.py (current extract_content logic)
+   - transform/pipeline.py (orchestration)
+
+3. Extract content scoring into transform/content_detector.py
+
+MIGRATION PATH
+--------------
+Phase 1: Add politeness (non-breaking)
+  [ ] Add fetch/robots.py
+  [ ] Add fetch/politeness.py
+  [ ] Wire into existing crawl_site()
+
+Phase 2: Add new extractors (non-breaking)
+  [ ] Add extract/images.py
+  [ ] Add extract/code.py
+  [ ] Extend output schema with optional fields
+
+Phase 3: Generalize output model (breaking)
+  [ ] Create model/types.py with unified schema
+  [ ] Add backward-compat layer for existing corpus JSON
+  [ ] Update analyze.py to handle both formats
+
+Phase 4: Refactor structure (breaking)
+  [ ] Split crawl.py into modules
+  [ ] Add proper async support
+  [ ] Add navigation API
+
+================================================================================
+PART 8: OPEN QUESTIONS / DECISIONS DEFERRED
+================================================================================
+
+1. JS RENDERING
+   - When to trigger? Content-type hint? Empty body detection?
+   - Playwright vs Puppeteer vs browserless.io?
+   - Resource budget per page?
+
+2. STORAGE FORMAT
+   - JSON vs MessagePack vs Parquet for structured output?
+   - Depends on access patterns (TBD after transform is stable)
+
+3. IMAGE HANDLING
+   - Download images or just store URLs?
+   - If downloading: resize? format convert? where to store?
+
+4. CODE BLOCK BOUNDARIES
+   - How to handle code split across multiple <pre> tags?
+   - Notebook-style pages with interleaved code/output?
+
+5. VERSIONING
+   - Track changes to same URL over time?
+   - Content hash for change detection?
+
+6. RATE LIMITING / POLITENESS
+   - Configurable per-domain? Global default?
+   - How to handle sites with no robots.txt?
+
+================================================================================
+NOTES
+================================================================================
+
+- Start with extraction breadth, narrow in transform
+- The output object is the contract - get that right first
+- Don't optimize storage until access patterns are clear
+- Test with diverse pages: docs, blogs, forums, github, news, e-commerce
+
+================================================================================

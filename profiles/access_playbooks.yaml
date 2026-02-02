@@ -1,0 +1,139 @@
+# Access Playbooks - Domain-specific fetch strategy overrides
+#
+# Precedence: CLI > run-config > playbook > seed fetch > defaults
+#
+# Schema:
+#   domain:
+#     strategy: http | js | stealth | manual
+#     delay: float (seconds between requests)
+#     headless: bool (false = visible browser)
+#     max_pages: int (page limit for this domain)
+#     patient: bool (use patient mode timing)
+#     slow_drip: bool (ultra-slow 2-15min delays)
+#     skip_selectors: list (CSS selectors to avoid clicking)
+#     notes: string (human notes)
+#
+# Add entries here when:
+# 1. Auto-detection chooses wrong method
+# 2. Site needs special timing/delays
+# 3. Site has known trap links to avoid
+# 4. Manual notes for operators
+
+# Knight-Swift: StackPath with sgcaptcha
+knight-swift.com:
+  strategy: stealth
+  delay: 5.0
+  headless: false
+  patient: true
+  notes: "StackPath sgcaptcha - needs cookies or monkey_see"
+
+# J.B. Hunt: AEM site, works with JS
+jbhunt.com:
+  strategy: js
+  delay: 3.0
+  headless: true
+  notes: "AEM - requires JS rendering"
+
+# Schneider: Next.js SPA
+schneider.com:
+  strategy: js
+  delay: 3.0
+  headless: true
+  notes: "Next.js - requires JS rendering"
+
+# Old Dominion: AEM site
+odfl.com:
+  strategy: js
+  delay: 3.0
+  headless: true
+  notes: "AEM - requires JS rendering"
+
+# Werner: Medium JS needs
+werner.com:
+  strategy: js
+  delay: 3.0
+  headless: true
+  notes: "Some JS components"
+
+# XPO: Can be aggressive
+xpo.com:
+  strategy: js
+  delay: 2.0
+  headless: true
+  notes: "Works reliably with JS"
+
+# C.H. Robinson: May have rate limiting
+chrobinson.com:
+  strategy: js
+  delay: 4.0
+  headless: true
+  patient: true
+  notes: "Rate limiting possible - use patient mode"
+
+# Landstar: Agent portal heavy
+landstar.com:
+  strategy: js
+  delay: 3.0
+  headless: true
+  skip_selectors:
+    - "a[href*='login']"
+    - "a[href*='portal']"
+  notes: "Skip login/portal links"
+
+# Saia: Generally works with HTTP
+saia.com:
+  strategy: http
+  delay: 2.0
+  notes: "Server-rendered, HTTP usually sufficient"
+
+# Estes: Server-rendered
+estes-express.com:
+  strategy: http
+  delay: 2.0
+  notes: "Server-rendered, HTTP works"
+
+# FedEx/UPS: Large sites, be conservative
+fedex.com:
+  strategy: js
+  delay: 5.0
+  headless: true
+  max_pages: 100
+  patient: true
+  notes: "Large site - limit pages, use patient mode"
+
+ups.com:
+  strategy: js
+  delay: 5.0
+  headless: true
+  max_pages: 100
+  patient: true
+  notes: "Large site - limit pages, use patient mode"
+
+# Ryder: Works with JS
+ryder.com:
+  strategy: js
+  delay: 3.0
+  headless: true
+  notes: "Standard JS site"
+
+# Penske: Corporate site
+penskelogistics.com:
+  strategy: js
+  delay: 3.0
+  headless: true
+  notes: "Standard corporate site"
+
+# Example manual-only entry (uncomment if needed):
+# heavily-protected-site.com:
+#   strategy: manual
+#   notes: "Requires human every crawl - perpetual manual"
+
+# Template for adding new entries:
+# new-domain.com:
+#   strategy: js
+#   delay: 3.0
+#   headless: true
+#   patient: false
+#   max_pages: null
+#   skip_selectors: []
+#   notes: "Add notes here"

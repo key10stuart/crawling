@@ -1,0 +1,74 @@
+name: comp_packages
+
+priority:
+  high:
+    - /drivers
+    - /driver
+    - /careers
+    - /jobs
+    - /recruit
+    - /recruiting
+    - /apply
+    - /owner-operator
+    - /owner-operators
+    - /lease
+    - /lease-to-own
+    - /carrier
+    - /carriers
+    - /partner-carrier
+    - /benefits
+    - /pay
+    - /compensation
+    - /incentive
+    - /bonus
+    - /per-diem
+    - /home-time
+    - /settlement
+    - /fuel
+    - /detention
+    - /layover
+    - /accessorial
+  medium:
+    - /resources
+    - /blog
+    - /news
+    - /faq
+  low:
+    - /privacy
+    - /terms
+    - /login
+    - /portal
+    - /track
+    - /quote
+
+expected_nav_sections:
+  - drivers
+  - owner operators
+  - carriers
+  - careers
+  - benefits
+  - pay
+  - recruiting
+
+features_of_interest:
+  - portal
+  - tracking
+  - load board
+  - carrier portal
+
+industry_terms:
+  - cpm
+  - cents per mile
+  - sign-on bonus
+  - tuition reimbursement
+  - per diem
+  - home time
+  - fuel surcharge
+  - quick pay
+  - detention
+  - layover
+  - accessorial
+
+settings:
+  max_depth: 2
+  max_pages: 120

@@ -1,0 +1,1770 @@
+Implementation Plan: Universal Access & Adaptive Crawling (Div 4)
+=================================================================
+
+Vision
+------
+Build a tool that can programmatically access every corner of the internet we
+point it towards — and have it "just work." When needed, it should emulate human
+traffic flawlessly, indistinguishable from a real browser session.
+
+This isn't just a trucking scraper. It's a universal access layer that adapts
+automatically to whatever defenses it encounters.
+
+
+Philosophy
+----------
+The tool should:
+1. **Detect** what protections exist before wasting requests
+2. **Select** the right strategy automatically based on fingerprinting
+3. **Emulate** human behavior when stealth is required
+4. **Learn** from past attempts and remember what worked
+5. **Adapt** in real-time when strategies fail
+
+
+Architecture Overview
+---------------------
+
+```
+Target URL
+    │
+    ▼
+┌─────────────────────────────────────┐
+│  RECON PHASE (before first fetch)   │
+├─────────────────────────────────────┤
+│  • DNS/IP lookup                    │
+│  • CDN/WAF fingerprint              │
+│  • SSL cert analysis (subdomains)   │
+│  • Response header signatures       │
+│  • Known protection database        │
+└─────────────────────────────────────┘
+    │
+    ▼
+┌─────────────────────────────────────┐
+│  STRATEGY SELECTION                 │
+├─────────────────────────────────────┤
+│  None       → fast HTTP             │
+│  Cloudflare → stealth + challenge   │
+│  StackPath  → cookies + slow        │
+│  Akamai     → residential proxy     │
+│  Unknown    → progressive escalation│
+└─────────────────────────────────────┘
+    │
+    ▼
+┌─────────────────────────────────────┐
+│  HUMAN EMULATION (when needed)      │
+├─────────────────────────────────────┤
+│  • Mouse movement patterns          │
+│  • Scroll behavior                  │
+│  • Click timing variance            │
+│  • Session continuity               │
+│  • Browser fingerprint consistency  │
+└─────────────────────────────────────┘
+    │
+    ▼
+┌─────────────────────────────────────┐
+│  LEARNING & ADAPTATION              │
+├─────────────────────────────────────┤
+│  • Record what worked               │
+│  • Remember for next time           │
+│  • Escalate on failure              │
+│  • Flag manual-only sites           │
+└─────────────────────────────────────┘
+    │
+    ▼
+Content
+```
+
+
+===============================================================================
+PART 1: CURRENT STATE (What's Implemented)
+===============================================================================
+
+Problem Statement
+-----------------
+Some sites employ aggressive anti-bot measures:
+- Cloudflare browser verification challenges
+- StackPath sgcaptcha (e.g., Knight-Swift)
+- JavaScript-based bot fingerprinting
+- Rate limiting with immediate 403 responses
+- CAPTCHA walls for automated traffic
+
+These return blocked pages instead of real content, resulting in:
+- Low word counts (26 words = challenge text)
+- Zero nav links extracted
+- Missing data from protected sites
+
+
+Blocked Sites (as of 2026-01-26)
+--------------------------------
+
+### Knight-Swift (knight-swift.com) — BLOCKED (StackPath sgcaptcha)
+
+Status: Unable to crawl - aggressive StackPath protection
+
+Response headers reveal:
+- `sg-captcha: challenge`
+- `server: nginx`
+- HTTP 202 with CAPTCHA redirect
+
+Attempts made:
+1. Standard requests: 403 Forbidden
+2. Playwright headless: Blocked (26 words - challenge page only)
+3. Playwright + stealth: Blocked
+4. Playwright + stealth + visible browser: Still blocked
+5. Patient mode with 8-20s delays: Still blocked
+
+Knight-Swift is a Tier 1 TL carrier - significant gap if excluded.
+
+
+Current Measures Implemented
+----------------------------
+
+### 1. JS Auto-Escalation on 403/202 (scripts/crawl.py)
+```python
+if resp.status_code in (403, 202):
+    log(f"  [js-escalate] {resp.status_code} - bot detection, switching to Playwright")
+    use_js = True
+```
+
+### 2. Stealth Mode (--stealth flag)
+Uses playwright-stealth to evade common fingerprints:
+- Patches navigator.webdriver
+- Spoofs browser plugins, languages, screen dimensions
+- Hides automation markers
+
+### 3. Visible Browser Mode (--no-headless flag)
+Runs browser visibly, bypassing headless detection.
+
+### 4. Patient Mode (--patient flag)
+Longer randomized delays (8-20s between requests).
+
+### 5. Cloudflare Challenge Detection & Wait (fetch/fetcher.py)
+```python
+challenge_indicators = [
+    'checking your browser',
+    'just a moment',
+    'ddos protection',
+    'cf-browser-verification',
+]
+# Wait up to 30 seconds for JS to resolve
+```
+
+### 6. Exponential Backoff on Blocks
+```python
+block_indicators = ['access denied', '403 forbidden', 'rate limit']
+# Retry with 10-15s, 20-25s, 40-45s delays
+```
+
+### 7. Slow Drip Mode (--slow-drip flag)
+Ultra-patient: 2-15 minute random delays, designed for overnight runs.
+
+
+CLI Flags Reference (Current)
+-----------------------------
+| Flag          | Effect                                              |
+|---------------|-----------------------------------------------------|
+| --js          | Always use Playwright (headless browser)            |
+| --js-auto     | Auto-detect JS requirement from homepage            |
+| --js-fallback | Use Playwright only if requests yield thin content  |
+| --stealth     | Use playwright-stealth for bot evasion              |
+| --no-headless | Run browser visibly (bypasses some detection)       |
+| --patient     | Longer delays (8-20s), more retries                 |
+| --slow-drip   | Ultra-patient: 2-15 min random delays, background   |
+| --delay N     | Custom base delay between requests (seconds)        |
+
+
+Operator UX (Preferred)
+-----------------------
+Goal: Minimal typing and cognitive load for routine checks.
+
+- Provide test scripts that run with sensible defaults and require no flags.
+- Allow at most one optional argument (target domain) for quick validation.
+- Prefer `scripts/test_*.sh` and `scripts/test_*.py` that print where to inspect outputs.
+- Human-in-the-loop checks should be “one command, one file to open.”
+
+
+===============================================================================
+PART 2: PER-SITE METHOD CONFIGURATION
+===============================================================================
+
+Problem
+-------
+The crawler applies strategies uniformly or via runtime flags. Sites like
+Knight-Swift need specific methods that differ from typical sites. Currently
+no way to express "this domain needs X method."
+
+Solution: Per-Site Fetch Config in Seeds
+----------------------------------------
+
+Add optional `fetch` field to carrier entries:
+
+```json
+{
+  "name": "Knight-Swift Transportation",
+  "domain": "knight-swift.com",
+  "category": ["tl"],
+  "tier": 1,
+  "fetch": {
+    "method": "stealth",
+    "patient": true,
+    "slow_drip": true,
+    "headless": false,
+    "cookies": "knight-swift.com",
+    "notes": "StackPath sgcaptcha - needs manual cookie bootstrap"
+  }
+}
+```
+
+Fetch Config Fields
+-------------------
+| Field       | Type   | Default  | Description                              |
+|-------------|--------|----------|------------------------------------------|
+| method      | string | "auto"   | "http", "js", "stealth", "auto"          |
+| patient     | bool   | false    | Use patient mode (8-20s delays)          |
+| slow_drip   | bool   | false    | Use slow-drip mode (2-15 min delays)     |
+| headless    | bool   | true     | false = visible browser                  |
+| cookies     | string | null     | Cookie file name to load                 |
+| delay       | float  | null     | Override base delay (seconds)            |
+| depth       | int    | null     | Override max depth for this site         |
+| skip        | bool   | false    | Skip this site entirely                  |
+| manual_only | bool   | false    | Flag for human-only crawling             |
+| notes       | string | null     | Human-readable notes                     |
+
+Method Values
+-------------
+| Method    | Behavior                               |
+|-----------|----------------------------------------|
+| "http"    | HTTP only, no Playwright               |
+| "js"      | Always use Playwright (headless)       |
+| "stealth" | Playwright + playwright-stealth        |
+| "auto"    | Current behavior (detect + fallback)   |
+
+
+Implementation
+--------------
+```python
+def get_site_fetch_config(carrier: dict, global_args) -> dict:
+    """Build FetchConfig from carrier's fetch settings + global args."""
+    fetch = carrier.get('fetch', {})
+
+    config = {
+        'js_always': global_args.js,
+        'js_fallback': global_args.js_fallback,
+        'stealth_fallback': global_args.stealth,
+        'headless': not global_args.no_headless,
+    }
+
+    method = fetch.get('method', 'auto')
+    if method == 'http':
+        config['js_always'] = False
+        config['js_fallback'] = False
+    elif method == 'js':
+        config['js_always'] = True
+    elif method == 'stealth':
+        config['js_always'] = True
+        config['stealth_fallback'] = True
+
+    if fetch.get('headless') is not None:
+        config['headless'] = fetch['headless']
+    if fetch.get('patient'):
+        config['patient_mode'] = True
+    if fetch.get('slow_drip'):
+        config['slow_drip_mode'] = True
+    if fetch.get('delay'):
+        config['request_delay'] = fetch['delay']
+
+    return config
+```
+
+
+===============================================================================
+PART 3: COOKIE PERSISTENCE
+===============================================================================
+
+Problem
+-------
+Sites like Knight-Swift require solving a CAPTCHA once. Currently no way to
+save and reuse that session.
+
+Cookie Store Structure
+----------------------
+```
+~/.crawl/
+└── cookies/
+    ├── knight-swift.com.json
+    ├── another-site.com.json
+    └── ...
+```
+
+Cookie File Format (Playwright standard)
+----------------------------------------
+```json
+[
+  {
+    "name": "cf_clearance",
+    "value": "abc123...",
+    "domain": ".knight-swift.com",
+    "path": "/",
+    "expires": 1738000000,
+    "httpOnly": true,
+    "secure": true,
+    "sameSite": "None"
+  }
+]
+```
+
+Cookie Bootstrap Workflow
+-------------------------
+
+1. **Manual solve** (human runs once):
+   ```bash
+   python scripts/bootstrap_cookies.py --domain knight-swift.com
+   ```
+
+2. **Script opens browser, waits for CAPTCHA solve:**
+   ```python
+   def bootstrap_cookies(domain: str):
+       with sync_playwright() as p:
+           browser = p.chromium.launch(headless=False)
+           context = browser.new_context()
+           page = context.new_page()
+           page.goto(f"https://www.{domain}")
+
+           print(f"Solve the CAPTCHA for {domain}, then press Enter...")
+           input()
+
+           cookies = context.cookies()
+           save_cookies(domain, cookies)
+           print(f"Saved {len(cookies)} cookies to ~/.crawl/cookies/{domain}.json")
+   ```
+
+3. **Crawler loads cookies** when `fetch.cookies` is set:
+   ```python
+   def load_site_cookies(domain: str) -> list[dict] | None:
+       cookie_file = Path.home() / ".crawl" / "cookies" / f"{domain}.json"
+       if cookie_file.exists():
+           return json.loads(cookie_file.read_text())
+       return None
+
+   # In fetch_playwright():
+   if cookies := load_site_cookies(domain):
+       context.add_cookies(cookies)
+   ```
+
+Cookie Expiry Handling
+----------------------
+- Check `expires` field before using
+- Warn if cookies are expired or expiring soon
+- Re-bootstrap workflow when cookies fail
+
+
+===============================================================================
+PART 4: SITE-LEVEL FRESHNESS (Skip Recently Crawled)
+===============================================================================
+
+Problem
+-------
+Current `--incremental` works at page level (skip unchanged pages within a site).
+Missing: site level skip — don't re-crawl schneider.com if crawled 2 hours ago.
+
+Running `--tier 1` after crawling a few sites individually = redundant work.
+
+Solution: `--freshen` Flag [IMPLEMENTED]
+----------------------------------------
+
+```bash
+# Skip sites crawled within 7 days
+python scripts/crawl.py --tier 1 --freshen 7d
+
+# Skip sites crawled within 24 hours
+python scripts/crawl.py --tier 1 --freshen 24h
+
+# Skip sites crawled within 2 hours
+python scripts/crawl.py --tier 1 --freshen 2h
+
+# Force re-crawl everything (current default)
+python scripts/crawl.py --tier 1
+```
+
+Output Timestamps [IMPLEMENTED]
+-------------------------------
+Site JSON now includes ISO timestamps and crawl depth:
+
+```json
+{
+  "domain": "schneider.com",
+  "snapshot_date": "2026-01-26",
+  "crawl_start": "2026-01-26T14:30:00+00:00",
+  "crawl_end": "2026-01-26T14:34:15+00:00",
+  "crawl_duration_sec": 255.0,
+  "crawl_depth": 2
+}
+```
+
+Depth-Aware Freshen [IMPLEMENTED]
+---------------------------------
+Freshen logic respects depth — shallow crawls don't block deeper crawls:
+
+```bash
+# After depth 0 crawl:
+python scripts/crawl.py --domain jbhunt.com --freshen 1h
+# Output: [fresh] jbhunt.com (11m ago, depth 0)
+
+# Requesting deeper crawl proceeds (depth 0 < depth 2):
+python scripts/crawl.py --domain jbhunt.com --depth 2 --freshen 1h
+# Output: Crawling 1 carriers... (not skipped)
+```
+
+Use case: shallow crawls daily, deep crawls weekly — they don't block each other.
+
+Skip logic:
+- Only skips if previous `crawl_depth >= requested depth`
+- Only skips if `crawl_start` age < freshen interval
+- Missing depth treated as 0
+
+Depth 0 Behavior [IMPLEMENTED]
+------------------------------
+`--depth 0` now means homepage only — nav links are NOT seeded.
+
+```bash
+python scripts/crawl.py --domain example.com --depth 0
+# Crawls only the homepage (1 page)
+```
+
+Optional: `--force-domain` Override [TODO]
+------------------------------------------
+```bash
+# Skip recent sites except schneider.com
+python scripts/crawl.py --tier 1 --freshen 7d --force-domain schneider.com
+```
+
+
+===============================================================================
+PART 5: CRAWL HISTORY LEARNING
+===============================================================================
+
+Problem
+-------
+When a method works for a site, we should remember it. When all methods fail,
+we should flag it as manual-only. Currently no memory between runs.
+
+History Store
+-------------
+```
+~/.crawl/
+└── history/
+    └── site_methods.json
+```
+
+History Format
+--------------
+```json
+{
+  "knight-swift.com": {
+    "last_success": null,
+    "last_attempt": "2026-01-26T02:00:00Z",
+    "attempts": [
+      {"method": "http", "status": "blocked", "words": 0, "date": "..."},
+      {"method": "js", "status": "blocked", "words": 26, "date": "..."},
+      {"method": "stealth", "status": "blocked", "words": 26, "date": "..."}
+    ],
+    "recommended_method": "manual_only"
+  },
+  "schneider.com": {
+    "last_success": "2026-01-25T20:00:00Z",
+    "last_attempt": "2026-01-25T20:00:00Z",
+    "attempts": [
+      {"method": "js", "status": "success", "words": 29890, "date": "..."}
+    ],
+    "recommended_method": "js"
+  }
+}
+```
+
+Learning Logic
+--------------
+```python
+def record_crawl_attempt(domain: str, method: str, success: bool, word_count: int):
+    history = load_history()
+    site = history.setdefault(domain, {"attempts": []})
+
+    site["attempts"].append({
+        "method": method,
+        "status": "success" if success else "blocked",
+        "words": word_count,
+        "date": datetime.now(timezone.utc).isoformat()
+    })
+    site["last_attempt"] = site["attempts"][-1]["date"]
+
+    if success:
+        site["last_success"] = site["last_attempt"]
+        site["recommended_method"] = method
+    else:
+        methods_tried = {a["method"] for a in site["attempts"] if a["status"] == "blocked"}
+        if methods_tried >= {"http", "js", "stealth"}:
+            site["recommended_method"] = "manual_only"
+
+    save_history(history)
+```
+
+Auto-Apply Learned Methods
+--------------------------
+```python
+def get_recommended_method(domain: str, carrier_fetch: dict) -> str:
+    """Get method: explicit config > learned history > auto."""
+    # 1. Explicit config takes priority
+    if carrier_fetch.get('method'):
+        return carrier_fetch['method']
+
+    # 2. Check history
+    history = load_history()
+    if domain in history and history[domain].get('recommended_method'):
+        return history[domain]['recommended_method']
+
+    # 3. Default to auto-detection
+    return 'auto'
+```
+
+
+===============================================================================
+PART 6: PRE-CRAWL RECONNAISSANCE
+===============================================================================
+
+Problem
+-------
+Currently we discover protections reactively (hit a wall, then adapt). Better
+to fingerprint the target before wasting requests.
+
+Recon Phase (Before First Fetch)
+--------------------------------
+
+```python
+@dataclass
+class SiteRecon:
+    domain: str
+    ip: str | None
+    cdn: str | None          # cloudflare, stackpath, akamai, fastly, none
+    waf: str | None          # detected WAF signatures
+    server: str | None       # nginx, apache, iis, etc.
+    challenge_type: str | None  # cf-challenge, sgcaptcha, etc.
+    subdomains: list[str]    # from cert transparency
+    recommended_method: str  # auto, js, stealth, manual
+
+
+def recon_site(domain: str) -> SiteRecon:
+    """Fingerprint site before crawling."""
+    recon = SiteRecon(domain=domain)
+
+    # 1. DNS lookup
+    try:
+        recon.ip = socket.gethostbyname(domain)
+    except socket.gaierror:
+        pass
+
+    # 2. HTTP HEAD request for headers
+    try:
+        resp = requests.head(f"https://www.{domain}", timeout=10, allow_redirects=True)
+        headers = {k.lower(): v for k, v in resp.headers.items()}
+
+        recon.server = headers.get('server')
+
+        # CDN/WAF detection from headers
+        if 'cf-ray' in headers or 'cf-cache-status' in headers:
+            recon.cdn = 'cloudflare'
+        elif 'sg-captcha' in headers:
+            recon.cdn = 'stackpath'
+            recon.challenge_type = 'sgcaptcha'
+        elif 'x-akamai' in headers or 'akamai' in headers.get('server', '').lower():
+            recon.cdn = 'akamai'
+        elif 'x-fastly' in headers:
+            recon.cdn = 'fastly'
+
+        # Challenge detection from status
+        if resp.status_code == 202:
+            recon.challenge_type = recon.challenge_type or 'bot-challenge'
+        elif resp.status_code == 403:
+            recon.challenge_type = 'blocked'
+
+    except requests.RequestException:
+        pass
+
+    # 3. Determine recommended method
+    if recon.challenge_type == 'sgcaptcha':
+        recon.recommended_method = 'stealth+cookies'
+    elif recon.cdn == 'cloudflare':
+        recon.recommended_method = 'stealth'
+    elif recon.cdn in ('akamai', 'fastly'):
+        recon.recommended_method = 'js'
+    else:
+        recon.recommended_method = 'auto'
+
+    return recon
+```
+
+CDN/WAF Signature Database
+--------------------------
+| Signature                  | CDN/WAF     | Recommended Method     |
+|----------------------------|-------------|------------------------|
+| cf-ray header              | Cloudflare  | stealth                |
+| sg-captcha header          | StackPath   | stealth + cookies      |
+| x-akamai header            | Akamai      | js + slow              |
+| x-fastly header            | Fastly      | js                     |
+| 202 + challenge page       | Various     | stealth + wait         |
+| 403 immediate              | Various     | stealth + patient      |
+| None detected              | None        | http (fast)            |
+
+Integration with Crawl Loop
+---------------------------
+```python
+def crawl_site(carrier, ...):
+    domain = carrier['domain']
+
+    # Recon before crawl
+    recon = recon_site(domain)
+    if recon.challenge_type:
+        log(f"  [recon] {domain}: {recon.cdn or 'unknown'} ({recon.challenge_type})")
+        log(f"  [recon] Recommended: {recon.recommended_method}")
+
+    # Use recon to inform strategy (unless explicit config overrides)
+    if not carrier.get('fetch', {}).get('method'):
+        method = recon.recommended_method
+    # ... continue with informed strategy
+```
+
+
+===============================================================================
+PART 7: HUMAN EMULATION
+===============================================================================
+
+Problem
+-------
+Current stealth patches hide automation markers, but behavior is still robotic.
+Sophisticated WAFs analyze timing, mouse movement, scroll patterns.
+
+Human Behavior Modeling
+-----------------------
+
+### 1. Timing Variance
+```python
+def human_delay(base: float = 1.0) -> float:
+    """Generate human-like delay with natural variance."""
+    # Humans have reaction times that follow a skewed distribution
+    # Fast: 200-400ms, Normal: 500-1500ms, Slow: 2-5s (distracted)
+    if random.random() < 0.1:  # 10% chance of "distraction"
+        return base + random.uniform(2.0, 5.0)
+    return base + random.gauss(0.7, 0.3)  # Normal with variance
+```
+
+### 2. Mouse Movement
+```python
+def human_mouse_move(page, target_x: int, target_y: int):
+    """Move mouse with human-like curve, not straight line."""
+    current = page.mouse.position
+    steps = random.randint(10, 25)
+
+    for i in range(steps):
+        t = i / steps
+        # Bezier curve with slight randomness
+        noise_x = random.gauss(0, 3)
+        noise_y = random.gauss(0, 3)
+        x = current['x'] + (target_x - current['x']) * ease_out_quad(t) + noise_x
+        y = current['y'] + (target_y - current['y']) * ease_out_quad(t) + noise_y
+        page.mouse.move(x, y)
+        time.sleep(random.uniform(0.01, 0.03))
+
+def ease_out_quad(t: float) -> float:
+    """Easing function for natural deceleration."""
+    return t * (2 - t)
+```
+
+### 3. Scroll Behavior
+```python
+def human_scroll(page, direction: str = 'down'):
+    """Scroll with human-like patterns."""
+    # Humans scroll in bursts, pause to read, sometimes overshoot and correct
+    total_scroll = random.randint(300, 800)
+    scrolled = 0
+
+    while scrolled < total_scroll:
+        chunk = random.randint(50, 200)
+        page.mouse.wheel(0, chunk if direction == 'down' else -chunk)
+        scrolled += chunk
+
+        # Reading pause (longer for more content)
+        if random.random() < 0.3:
+            time.sleep(random.uniform(0.5, 2.0))
+        else:
+            time.sleep(random.uniform(0.05, 0.15))
+
+    # Occasional overshoot correction
+    if random.random() < 0.2:
+        page.mouse.wheel(0, -random.randint(20, 50))
+```
+
+### 4. Click Timing
+```python
+def human_click(page, selector: str):
+    """Click with human-like targeting and timing."""
+    element = page.locator(selector)
+    box = element.bounding_box()
+
+    # Don't click dead center - humans are slightly off
+    x = box['x'] + box['width'] * random.uniform(0.3, 0.7)
+    y = box['y'] + box['height'] * random.uniform(0.3, 0.7)
+
+    human_mouse_move(page, x, y)
+    time.sleep(random.uniform(0.05, 0.15))  # Hover before click
+    page.mouse.click(x, y)
+```
+
+### 5. Session Continuity
+```python
+class HumanSession:
+    """Maintain consistent browser fingerprint across session."""
+
+    def __init__(self):
+        self.viewport = self._random_viewport()
+        self.timezone = self._random_timezone()
+        self.locale = random.choice(['en-US', 'en-GB', 'en-CA'])
+        self.color_depth = random.choice([24, 32])
+
+    def _random_viewport(self) -> dict:
+        # Common resolutions
+        resolutions = [
+            (1920, 1080), (1366, 768), (1536, 864),
+            (1440, 900), (1280, 720), (2560, 1440)
+        ]
+        w, h = random.choice(resolutions)
+        return {'width': w, 'height': h}
+
+    def apply_to_context(self, context):
+        context.set_viewport_size(self.viewport)
+        # ... apply other settings
+```
+
+Integration
+-----------
+```python
+def fetch_with_human_emulation(url: str, page) -> str:
+    """Fetch page with full human behavior emulation."""
+    page.goto(url)
+
+    # Initial "look around" behavior
+    time.sleep(human_delay(0.5))
+    human_scroll(page, 'down')
+    time.sleep(human_delay(1.0))
+    human_scroll(page, 'up')
+
+    # Random mouse movements (reading behavior)
+    for _ in range(random.randint(2, 5)):
+        x = random.randint(100, page.viewport_size['width'] - 100)
+        y = random.randint(100, page.viewport_size['height'] - 100)
+        human_mouse_move(page, x, y)
+        time.sleep(human_delay(0.3))
+
+    return page.content()
+```
+
+
+===============================================================================
+PART 8: MONKEY SYSTEM (Record / Replay / Queue)
+===============================================================================
+
+Philosophy
+----------
+When automation fails, don't give up — queue for minimal human assist.
+When human assists, record everything so we can replay next time.
+Flows go stale; when they do, re-queue automatically.
+
+**Principle: Always minimal manual, maximally automated.**
+
+
+The Two Monkeys
+---------------
+
+| Function     | Mode       | Purpose                                    |
+|--------------|------------|-------------------------------------------|
+| `monkey_see` | Human      | Browse + record flow + capture content    |
+| `monkey_do`  | Unattended | Replay flow + capture content             |
+
+
+Escalation Flow
+---------------
+
+```
+                    ┌──────────────────────────┐
+                    │      crawl runs          │
+                    └────────────┬─────────────┘
+                                 │
+                    ┌────────────▼─────────────┐
+                    │  try auto (http/js/etc)  │
+                    └────────────┬─────────────┘
+                                 │ fail
+                    ┌────────────▼─────────────┐
+                    │  try monkey_do (replay)  │
+                    └────────────┬─────────────┘
+                                 │ fail (flow stale/site changed)
+                    ┌────────────▼─────────────┐
+                    │  add to monkey_queue     │
+                    └────────────┬─────────────┘
+                                 │
+         ┌───────────────────────┴────────────────────────┐
+         │                                                │
+         ▼                                                │
+   ┌───────────┐                                          │
+   │  human    │                                          │
+   │  runs     │                                          │
+   │monkey_see │                                          │
+   └─────┬─────┘                                          │
+         │                                                │
+         ├──► content captured NOW                        │
+         │                                                │
+         └──► fresh flow saved ───────────────────────────┘
+                    (monkey_do uses next crawl)
+```
+
+
+Why Flows Go Stale
+------------------
+- Site changes layout / DOM structure
+- CAPTCHA tokens expire
+- Cookies rotate or invalidate
+- New bot detection deployed
+- Session fingerprint flagged
+
+When `monkey_do` fails, the site goes back to queue — even if we have a flow.
+Human runs `monkey_see` again to get fresh content + fresh flow.
+
+
+8.1 monkey_see (Human-Assisted Capture)
+---------------------------------------
+
+Opens browser, human browses, records everything, extracts content.
+
+```python
+async def monkey_see(domain: str) -> dict:
+    """Human browses → record flow + capture content."""
+    flow = []
+    pages_captured = []
+    last_action_time = time.time()
+
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=False)
+        context = await browser.new_context()
+        page = await context.new_page()
+
+        # === RECORD INTERACTIONS ===
+
+        async def record_click(data):
+            nonlocal last_action_time
+            now = time.time()
+            flow.append({
+                "action": "click",
+                "selector": data.get("selector"),
+                "x": data.get("x"),
+                "y": data.get("y"),
+                "timestamp": now,
+                "delay_since_last": now - last_action_time,
+                "meta": data.get("meta", {})
+            })
+            last_action_time = now
+
+        await page.expose_binding("recordClick",
+            lambda _, data: asyncio.create_task(record_click(data)))
+
+        # Inject click listener with position tracking
+        await inject_recorder(page)
+
+        # Track navigation
+        def on_navigate(frame):
+            nonlocal last_action_time
+            now = time.time()
+            flow.append({
+                "action": "navigate",
+                "url": page.url,
+                "timestamp": now,
+                "delay_since_last": now - last_action_time
+            })
+            last_action_time = now
+
+        page.on("framenavigated", on_navigate)
+
+        # === CAPTURE CONTENT ===
+
+        async def capture_page():
+            html = await page.content()
+            url = page.url
+            extracted = extract_content(html, url)
+            pages_captured.append({
+                'url': url,
+                'html': html,
+                'content': extracted,
+                'timestamp': time.time()
+            })
+            print(f"📄 Captured: {url} ({extracted['word_count']} words)")
+
+        page.on("load", lambda: asyncio.create_task(capture_page()))
+
+        # === START SESSION ===
+
+        await page.goto(f"https://www.{domain}")
+        print(f"🐒 monkey_see watching {domain}")
+        print(f"🐒 Browse around. Press ENTER when done.")
+
+        await asyncio.get_event_loop().run_in_executor(None, input)
+
+        # Final capture of current page
+        await capture_page()
+
+        await browser.close()
+
+    # === SAVE OUTPUTS ===
+
+    save_flow(domain, flow)
+    save_captured_content(domain, pages_captured)
+
+    total_words = sum(p['content']['word_count'] for p in pages_captured)
+    print(f"🐒 Done: {len(pages_captured)} pages, {total_words} words")
+    print(f"🐒 Flow saved to ~/.crawl/flows/{domain}.flow.json")
+
+    return {
+        'domain': domain,
+        'pages': len(pages_captured),
+        'words': total_words,
+        'flow_saved': True
+    }
+```
+
+
+8.2 monkey_do (Unattended Replay)
+---------------------------------
+
+Replays a saved flow, capturing content at each step.
+
+```python
+async def monkey_do(domain: str, flow_path: Path = None) -> dict:
+    """Replay saved flow → capture content."""
+
+    if flow_path is None:
+        flow_path = FLOWS_DIR / f"{domain}.flow.json"
+
+    if not flow_path.exists():
+        return {'success': False, 'error': 'no_flow'}
+
+    flow = json.loads(flow_path.read_text())
+    pages_captured = []
+
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=True)
+        context = await browser.new_context()
+        page = await context.new_page()
+
+        # Load cookies if available
+        cookies = load_site_cookies(domain)
+        if cookies:
+            await context.add_cookies(cookies)
+
+        for i, action in enumerate(flow):
+            try:
+                # Replay with recorded timing
+                delay = action.get('delay_since_last', 1.0)
+                await asyncio.sleep(delay)
+
+                if action['action'] == 'navigate':
+                    await page.goto(action['url'], wait_until='networkidle')
+
+                elif action['action'] == 'click':
+                    if action.get('x') and action.get('y'):
+                        # Position-based click (more authentic)
+                        await page.mouse.click(action['x'], action['y'])
+                    elif action.get('selector'):
+                        # Selector-based fallback
+                        await page.click(action['selector'])
+
+                # Capture after each action
+                html = await page.content()
+                extracted = extract_content(html, page.url)
+                pages_captured.append({
+                    'url': page.url,
+                    'content': extracted,
+                    'action_index': i
+                })
+
+            except Exception as e:
+                print(f"🐒 monkey_do failed at action {i}: {e}")
+                return {
+                    'success': False,
+                    'error': 'replay_failed',
+                    'failed_at': i,
+                    'pages_before_fail': len(pages_captured)
+                }
+
+        await browser.close()
+
+    # Save captured content
+    save_captured_content(domain, pages_captured)
+
+    total_words = sum(p['content']['word_count'] for p in pages_captured)
+    return {
+        'success': True,
+        'domain': domain,
+        'pages': len(pages_captured),
+        'words': total_words
+    }
+```
+
+
+8.3 Monkey Queue
+----------------
+
+Sites awaiting human attention.
+
+```python
+# ~/.crawl/monkey_queue.json
+{
+  "queue": [
+    {
+      "domain": "knight-swift.com",
+      "added": "2026-01-26T14:00:00Z",
+      "reason": "sgcaptcha - monkey_do failed",
+      "attempts_auto": ["http", "js", "stealth"],
+      "attempts_monkey_do": 2,
+      "priority": "high",
+      "tier": 1,
+      "last_flow_date": "2026-01-20T00:00:00Z"
+    }
+  ],
+  "completed": [
+    {
+      "domain": "knight-swift.com",
+      "completed": "2026-01-26T15:30:00Z",
+      "pages": 23,
+      "words": 8200
+    }
+  ]
+}
+```
+
+Queue Management:
+
+```python
+def add_to_monkey_queue(domain: str, reason: str, tier: int = None):
+    """Add site to queue for human attention."""
+    queue = load_monkey_queue()
+
+    # Check if already in queue
+    existing = next((s for s in queue['queue'] if s['domain'] == domain), None)
+    if existing:
+        existing['attempts_monkey_do'] = existing.get('attempts_monkey_do', 0) + 1
+        existing['reason'] = reason
+    else:
+        queue['queue'].append({
+            'domain': domain,
+            'added': datetime.now(timezone.utc).isoformat(),
+            'reason': reason,
+            'attempts_auto': [],
+            'attempts_monkey_do': 0,
+            'priority': 'high' if tier == 1 else 'normal',
+            'tier': tier
+        })
+
+    save_monkey_queue(queue)
+
+
+def remove_from_queue(domain: str, pages: int, words: int):
+    """Move from queue to completed."""
+    queue = load_monkey_queue()
+
+    # Remove from queue
+    queue['queue'] = [s for s in queue['queue'] if s['domain'] != domain]
+
+    # Add to completed
+    queue['completed'].append({
+        'domain': domain,
+        'completed': datetime.now(timezone.utc).isoformat(),
+        'pages': pages,
+        'words': words
+    })
+
+    save_monkey_queue(queue)
+```
+
+
+8.4 Integration with Crawl Loop
+-------------------------------
+
+```python
+def crawl_site(carrier, ...):
+    domain = carrier['domain']
+    tier = carrier.get('tier')
+
+    # === Level 0-1: Auto methods ===
+    result = try_auto_methods(domain, config)
+    if result and result.success:
+        return result
+
+    # === Level 2: Try monkey_do (replay saved flow) ===
+    flow_file = FLOWS_DIR / f"{domain}.flow.json"
+    if flow_file.exists():
+        log(f"[monkey_do] Attempting replay for {domain}")
+        result = asyncio.run(monkey_do(domain, flow_file))
+        if result['success']:
+            log(f"[monkey_do] Success: {result['pages']} pages, {result['words']} words")
+            return result
+        else:
+            log(f"[monkey_do] Failed: {result.get('error')}")
+
+    # === Level 3: Add to queue for human ===
+    reason = result.get('error', 'all methods failed') if result else 'all methods failed'
+    add_to_monkey_queue(domain, reason=reason, tier=tier)
+    log(f"[queue] {domain} added to monkey_queue ({reason})")
+
+    return None
+```
+
+
+8.5 CLI Interface
+-----------------
+
+```bash
+# Check queue
+python scripts/monkey.py --list
+# 🐒 Monkey Queue (2 sites):
+#    1. knight-swift.com [HIGH] - sgcaptcha (queued 2h ago)
+#    2. another-site.com [NORMAL] - monkey_do failed (queued 1d ago)
+
+# Process next in queue
+python scripts/monkey.py --next
+# 🐒 Opening knight-swift.com...
+# 🐒 Browse around. Press ENTER when done.
+# 📄 Captured: / (770 words)
+# 📄 Captured: /about (540 words)
+# ...
+# 🐒 Done: 23 pages, 8.2K words
+# 🐒 Flow saved. Removed from queue.
+
+# Process specific domain
+python scripts/monkey.py --see knight-swift.com
+
+# Replay without human (test if flow still works)
+python scripts/monkey.py --do knight-swift.com
+
+# Clear queue
+python scripts/monkey.py --clear
+```
+
+
+8.6 Replay Scheduling
+---------------------
+
+For sites that need regular re-scraping with saved flows.
+
+```yaml
+# ~/.crawl/replay_schedule.yaml
+schedules:
+  - domain: knight-swift.com
+    cadence: monthly
+    last_success: 2026-01-26
+    last_attempt: 2026-01-26
+    consecutive_failures: 0
+
+  - domain: stubborn-site.com
+    cadence: weekly
+    last_success: 2026-01-20
+    last_attempt: 2026-01-25
+    consecutive_failures: 1  # Will re-queue if fails again
+```
+
+```python
+def check_replay_schedule():
+    """Run scheduled monkey_do replays."""
+    schedule = load_replay_schedule()
+    now = datetime.now(timezone.utc)
+
+    for site in schedule['schedules']:
+        domain = site['domain']
+        cadence = site['cadence']
+        last = datetime.fromisoformat(site['last_success'])
+
+        # Check if due
+        if cadence == 'monthly' and (now - last).days >= 30:
+            due = True
+        elif cadence == 'weekly' and (now - last).days >= 7:
+            due = True
+        else:
+            due = False
+
+        if due:
+            print(f"🐒 Scheduled replay: {domain} ({cadence})")
+            result = asyncio.run(monkey_do(domain))
+
+            if result['success']:
+                site['last_success'] = now.isoformat()
+                site['consecutive_failures'] = 0
+            else:
+                site['consecutive_failures'] += 1
+
+                # Re-queue after 2 consecutive failures
+                if site['consecutive_failures'] >= 2:
+                    add_to_monkey_queue(domain, reason='scheduled replay failed 2x')
+                    print(f"🐒 {domain} re-queued (flow stale)")
+
+            site['last_attempt'] = now.isoformat()
+
+    save_replay_schedule(schedule)
+```
+
+
+8.7 Perpetual Manual Sites
+--------------------------
+
+Some sites may never work with automation. Flag them:
+
+```python
+def check_perpetual_manual(domain: str) -> bool:
+    """Check if site needs human every time."""
+    queue = load_monkey_queue()
+
+    # Count recent queue appearances
+    completed = [c for c in queue['completed'] if c['domain'] == domain]
+    recent = [c for c in completed
+              if (datetime.now(timezone.utc) -
+                  datetime.fromisoformat(c['completed'])).days < 90]
+
+    # If queued 3+ times in 90 days, it's perpetual manual
+    if len(recent) >= 3:
+        return True
+
+    return False
+
+
+def crawl_site(carrier, ...):
+    domain = carrier['domain']
+
+    # Check if perpetual manual
+    if check_perpetual_manual(domain):
+        log(f"[perpetual] {domain} requires human every crawl")
+        add_to_monkey_queue(domain, reason='perpetual manual site')
+        return None
+
+    # ... normal escalation ...
+```
+
+
+8.8 Flow File Format
+--------------------
+
+Complete flow with timing + positions for authentic replay:
+
+```json
+{
+  "domain": "knight-swift.com",
+  "recorded": "2026-01-26T15:30:00Z",
+  "total_duration_sec": 45.2,
+  "viewport": {"width": 1920, "height": 1080},
+  "actions": [
+    {
+      "action": "navigate",
+      "url": "https://www.knight-swift.com/",
+      "timestamp": 1706282400.0,
+      "delay_since_last": 0
+    },
+    {
+      "action": "scroll",
+      "direction": "down",
+      "amount": 350,
+      "timestamp": 1706282402.5,
+      "delay_since_last": 2.5
+    },
+    {
+      "action": "click",
+      "selector": "nav > ul > li:nth-child(3) > a",
+      "x": 542,
+      "y": 85,
+      "timestamp": 1706282405.1,
+      "delay_since_last": 2.6,
+      "meta": {
+        "tagName": "A",
+        "text": "About Us",
+        "href": "/about"
+      }
+    },
+    {
+      "action": "navigate",
+      "url": "https://www.knight-swift.com/about",
+      "timestamp": 1706282406.0,
+      "delay_since_last": 0.9
+    }
+  ]
+}
+```
+
+
+===============================================================================
+PART 9: IMPLEMENTATION PLAN
+===============================================================================
+
+Phase 1: Per-Site Config (Core)
+-------------------------------
+Files to modify:
+- scripts/crawl.py: Parse `fetch` field, apply to FetchConfig
+- fetch/config.py: Add fields for patient/slow-drip modes
+
+New functions:
+- get_site_fetch_config(carrier, args) -> dict
+- should_skip_site(carrier) -> bool
+
+Estimated effort: 2-3 hours
+
+
+Phase 2: Cookie Persistence
+---------------------------
+New files:
+- scripts/bootstrap_cookies.py: Manual CAPTCHA bootstrap tool
+- fetch/cookies.py: Cookie load/save utilities
+
+Files to modify:
+- fetch/fetcher.py: Load cookies in fetch_playwright()
+
+Estimated effort: 2-3 hours
+
+
+Phase 3: Site-Level Freshness
+-----------------------------
+Files to modify:
+- scripts/crawl.py:
+  - Add crawl_start / crawl_end timestamps to output
+  - Add --freshen flag parsing
+  - Add should_skip_site_freshness() check
+
+New functions:
+- parse_freshen_interval(s) -> timedelta
+- should_skip_site_freshness(domain, freshen) -> (bool, str)
+
+Estimated effort: 1-2 hours
+
+
+Phase 4: History Learning
+-------------------------
+New files:
+- fetch/history.py: History load/save/query utilities
+
+Files to modify:
+- scripts/crawl.py: Record attempts, query recommendations
+
+Estimated effort: 2-3 hours
+
+
+Phase 5: Pre-Crawl Reconnaissance
+---------------------------------
+New files:
+- fetch/recon.py: Site fingerprinting utilities
+
+New functions:
+- recon_site(domain) -> SiteRecon
+- detect_cdn(headers) -> str | None
+- detect_waf(headers, body) -> str | None
+
+Estimated effort: 2-3 hours
+
+
+Phase 6: Human Emulation
+------------------------
+New files:
+- fetch/human.py: Human behavior emulation utilities
+
+New classes/functions:
+- HumanSession: Consistent fingerprint across session
+- human_delay(), human_scroll(), human_click(), human_mouse_move()
+- fetch_with_human_emulation()
+
+Estimated effort: 3-4 hours
+
+
+Phase 7: Monkey System
+----------------------
+New files:
+- scripts/monkey.py: CLI for monkey_see/monkey_do/queue management
+- fetch/monkey.py: Core monkey_see and monkey_do functions
+
+New functions:
+- monkey_see(domain) -> record flow + capture content
+- monkey_do(domain, flow_path) -> replay flow + capture content
+- add_to_monkey_queue(domain, reason, tier)
+- remove_from_queue(domain, pages, words)
+- check_replay_schedule()
+- check_perpetual_manual(domain) -> bool
+
+Data files:
+- ~/.crawl/monkey_queue.json
+- ~/.crawl/flows/{domain}.flow.json
+- ~/.crawl/replay_schedule.yaml
+
+Estimated effort: 4-5 hours
+
+
+Phase 8: CLI Integration
+------------------------
+New flags:
+- --freshen INTERVAL: Skip sites crawled within interval
+- --force-domain DOMAIN: Override freshen for specific domain
+- --bootstrap DOMAIN: Run cookie bootstrap for domain
+- --show-history: Display crawl history for all sites
+- --clear-history DOMAIN: Clear history for domain
+- --ignore-history: Don't use learned methods
+- --recon-only: Just fingerprint, don't crawl
+- --human-emulation: Enable full behavioral emulation
+
+New script (scripts/monkey.py):
+- --list: Show monkey queue
+- --next: Process next queued site
+- --see DOMAIN: Run monkey_see for domain
+- --do DOMAIN: Run monkey_do for domain
+- --schedule: Run scheduled replays
+- --clear: Clear queue
+
+Estimated effort: 2-3 hours
+
+
+Total Estimated Effort: 20-25 hours
+
+
+===============================================================================
+PART 10: EXAMPLE USAGE
+===============================================================================
+
+Basic (Current)
+---------------
+```bash
+python scripts/crawl.py --domain example.com --js
+```
+
+With Per-Site Config
+--------------------
+```bash
+# Seeds file has method config per site
+python scripts/crawl.py --tier 1 -j 4 --js-auto
+# Knight-Swift uses stealth + cookies, others use auto-detection
+```
+
+With Cookie Bootstrap
+---------------------
+```bash
+# One-time: human solves CAPTCHA
+python scripts/bootstrap_cookies.py --domain knight-swift.com
+
+# Now crawl works
+python scripts/crawl.py --domain knight-swift.com --stealth
+```
+
+With Freshness
+--------------
+```bash
+# Crawl schneider individually
+python scripts/crawl.py --domain schneider.com --js
+
+# Full tier-1, skip recent
+python scripts/crawl.py --tier 1 --freshen 24h
+# [skip] Schneider National (schneider.com) — crawled 2.5h ago
+```
+
+With Learning
+-------------
+```bash
+# First run - learns what works
+python scripts/crawl.py --tier 1 -j 4 --js-auto
+
+# Check history
+python scripts/crawl.py --show-history
+# schneider.com: js (29K words)
+# knight-swift.com: manual_only (all methods failed)
+
+# Second run - uses learned methods
+python scripts/crawl.py --tier 1 -j 4
+```
+
+With Recon
+----------
+```bash
+# Just fingerprint, don't crawl
+python scripts/crawl.py --tier 1 --recon-only
+# knight-swift.com: stackpath (sgcaptcha) → stealth+cookies
+# schneider.com: none detected → auto
+# jbhunt.com: none detected → auto
+```
+
+Full Universal Access
+---------------------
+```bash
+# Everything enabled: recon, learning, freshness, human emulation
+python scripts/crawl.py --tier 1 -j 4 \
+    --freshen 7d \
+    --human-emulation \
+    2>&1 | tee crawl.log
+```
+
+With Monkey System
+------------------
+```bash
+# Crawl runs, hits walls, queues stubborn sites
+python scripts/crawl.py --tier 1 -j 4 --js-auto
+# [queue] knight-swift.com → monkey_queue (sgcaptcha)
+
+# Human checks queue
+python scripts/monkey.py --list
+# 🐒 Monkey Queue (1 site):
+#    1. knight-swift.com [HIGH] - sgcaptcha (queued 2h ago)
+
+# Human processes queue (browse + capture + record flow)
+python scripts/monkey.py --next
+# 🐒 Opening knight-swift.com...
+# 🐒 Browse around. Press ENTER when done.
+# 📄 Captured: / (770 words)
+# 📄 Captured: /about (540 words)
+# 🐒 Done: 23 pages, 8.2K words
+# 🐒 Flow saved. Removed from queue.
+
+# Next crawl: monkey_do replays the flow automatically
+python scripts/crawl.py --tier 1 -j 4
+# [monkey_do] knight-swift.com: replaying saved flow
+# [monkey_do] Success: 23 pages, 8.2K words
+
+# If flow goes stale, site re-queues automatically
+# Human just processes queue periodically
+
+# Run scheduled replays (cron job)
+python scripts/monkey.py --schedule
+# 🐒 Scheduled replay: knight-swift.com (monthly)
+# 🐒 Success: 25 pages, 9.1K words
+```
+
+
+===============================================================================
+PART 11: SUCCESS CRITERIA
+===============================================================================
+
+Per-Site Config:
+- [ ] Per-site `fetch` config parsed and applied in crawl loop
+- [ ] Method, delay, depth overrides working per-site
+
+Cookie Persistence:
+- [ ] Cookie bootstrap tool working for manual CAPTCHA sites
+- [ ] Cookies loaded automatically when configured
+- [ ] Expiry warnings implemented
+
+Freshness:
+- [x] --freshen skips recently-crawled sites
+- [x] crawl_start/crawl_end timestamps present in all new crawl outputs
+- [x] crawl_depth stored and respected (shallow crawls don't block deep crawls)
+- [x] --depth 0 means homepage only (no nav seeding)
+- [ ] --force-domain overrides freshen for specific sites
+
+History Learning:
+- [ ] History records crawl attempts and outcomes
+- [ ] Learned methods applied on subsequent runs
+- [ ] --show-history displays site method recommendations
+
+Reconnaissance:
+- [ ] Pre-crawl fingerprinting detects CDN/WAF
+- [ ] Recommended method auto-selected based on recon
+- [ ] --recon-only mode working
+
+Human Emulation:
+- [ ] Mouse movement with natural curves
+- [ ] Scroll behavior with reading pauses
+- [ ] Click timing variance
+- [ ] Session fingerprint consistency
+
+Monkey System:
+- [ ] monkey_see records flow + captures content in one session
+- [ ] monkey_do replays saved flows unattended
+- [ ] Monkey queue tracks sites awaiting human attention
+- [ ] Failed sites auto-queue (escalation works)
+- [ ] Stale flows trigger re-queue automatically
+- [ ] Replay scheduling works (monthly/weekly cadence)
+- [ ] Perpetual manual sites flagged after 3+ queue appearances
+- [ ] Flow files include timing + positions for authentic replay
+
+Overall:
+- [ ] Knight-Swift successfully crawled via monkey_see
+- [ ] Knight-Swift replayed via monkey_do on subsequent runs
+- [ ] At least 95% of tier-1 carriers crawlable via some method
+- [ ] Tool "just works" for new domains without manual flag tuning
+- [ ] Human intervention is minimal and queue-based
+
+
+===============================================================================
+FILES
+===============================================================================
+
+Modified:
+- scripts/crawl.py
+- fetch/fetcher.py
+- fetch/config.py
+
+New:
+- scripts/bootstrap_cookies.py
+- scripts/monkey.py
+- fetch/cookies.py
+- fetch/history.py
+- fetch/recon.py
+- fetch/human.py
+- fetch/monkey.py
+
+Data Files:
+- ~/.crawl/cookies/{domain}.json
+- ~/.crawl/history/site_methods.json
+- ~/.crawl/flows/{domain}.flow.json
+- ~/.crawl/monkey_queue.json
+- ~/.crawl/replay_schedule.yaml
+
+
+===============================================================================
+PART 12: HUMAN EVALUATION FINDINGS (2026-01-26)
+===============================================================================
+
+First interactive evaluation run using `scripts/eval_interactive.py --limit 5`.
+Sites evaluated: jbhunt.com, werner.com, knight-swift.com, odfl.com, schneider.com
+
+Results Summary
+---------------
+```
+jbhunt.com:       87.5%  (homepage solid, subpages N/A due to render bug)
+werner.com:       73.4%  (8 pages scored, consistent 2s across criteria)
+knight-swift.com: N/A    (extraction failed entirely - StackPath block)
+odfl.com:         62.5%  (lowest - extraction gaps beyond trafilatura)
+schneider.com:    70.8%  (decent, some irrelevant pages surfaced)
+```
+
+Average: 73.5% | Min: 62.5% | Max: 87.5%
+
+
+Bug: Report Files Not Opening for Subpages
+------------------------------------------
+Error seen repeatedly:
+```
+0:128: execution error: File some object wasn't found. (-43)
+```
+
+This is macOS AppleScript failing when `webbrowser.open()` tries to open
+rendered HTML reports. Homepage reports work; subpage reports don't.
+
+**Root cause:** Path construction in `render_page_report()` — the suffix
+sanitization may produce paths with weird characters or the file isn't
+being written before the open call.
+
+**Location:** `scripts/eval_interactive.py:105-113`
+
+**Fix needed:** Ensure report file exists before calling `webbrowser.open()`,
+and sanitize suffix more aggressively (replace all non-alphanumeric).
+
+
+Bug: Comp Page Detection Regex Too Broad
+----------------------------------------
+Current URL patterns in `COMP_URL_PATTERNS` match too broadly:
+
+```python
+r'/drivers?',      # matches /driver, /drivers, but also /driving-change
+r'/driving',       # matches /driving but also /driving-towards-sustainability
+```
+
+This pulls in irrelevant blog posts:
+- `/blog/logistics/driving-change-*` (safety series, not comp)
+- `/blog/logistics/driver-work-flow/` (workflow content, not comp)
+- `/blog/werner-edge-blog/driving-towards-a-sustainable-future/`
+
+Meanwhile, actual comp pages may be missed if they use different URL patterns.
+
+**Fix needed:** Tighten regex or add negative patterns:
+- Exclude `/blog/` paths unless they contain comp keywords in title
+- Require comp-specific keywords in path, not just "driv*"
+- Consider page_type classification as primary filter, URL as secondary
+
+
+Issue: ODFL Extraction Quality
+------------------------------
+Notes from eval: "no extraction beyond trafilatura text extraction ran"
+
+ODFL pages show:
+- Coverage: 1/3 (partial)
+- Precision: 2/3 (few false positives, but also few true positives)
+
+The deeper structural extraction (section tree, tagged blocks, detected
+features) isn't firing for ODFL. Their HTML structure may be tripping up
+the parser.
+
+**Investigation needed:** Check ODFL HTML against extraction assumptions.
+Possibly AEM-specific DOM patterns not covered.
+
+
+Issue: Knight-Swift Still Blocked
+---------------------------------
+As expected from earlier work, Knight-Swift returns N/A - the extraction
+file doesn't exist because the crawl was blocked by StackPath sgcaptcha.
+
+This confirms the need for the monkey system (Part 8) or cookie bootstrap
+(Part 3) before Knight-Swift can be evaluated.
+
+
+Issue: Some Pages Not Comp-Related
+----------------------------------
+Several pages surfaced in eval that aren't compensation-related:
+- `/our-company/why-jbhunt/driving-value` (customer value prop, not driver comp)
+- `/blog/logistics/driver-work-flow/` (operational content)
+- `/contact-us/employment-verification` (HR admin, not recruiting)
+
+The comp page finder is optimizing for recall over precision. For human eval,
+this creates noise. Consider:
+- Adding page_type filter (only show pages classified as careers/recruiting)
+- Using NLP comp scoring to rank pages before presenting
+
+
+Observation: Carousel/Interactive Content
+-----------------------------------------
+From jbhunt homepage notes: "carousel and interactive elements not working
+perfectly, fetching text pertaining to specific features"
+
+This confirms the known gap in interactive element handling. Carousels show
+partial content (whichever slide was visible at extraction time), not all
+slides.
+
+**Status:** Partially addressed in `fetch/interaction_plan.py` with carousel
+selectors, but needs verification that clicks cycle through all slides.
+
+
+Observation: Werner Homepage Copy Quality
+-----------------------------------------
+Unrelated to extraction, but noted during eval:
+
+Werner's homepage hero contains awkward copy that switches between first
+and third person:
+> "Werner® is a leading trucking company... We use state-of-the-art
+> technology... **This trucking company** offers a range of services..."
+
+"This trucking company" is particularly odd — no company naturally refers
+to themselves that way on their own homepage. Reads like SEO-stuffed or
+AI-generated content.
+
+Relevant to costly signal theory: sloppy copy signals organizational
+attention (or lack thereof). If they can't proofread their homepage,
+what else are they cutting corners on?
+
+
+Action Items from Eval
+----------------------
+1. [ ] Fix report file path bug in `eval_interactive.py`
+2. [ ] Tighten comp page URL regex (exclude /blog/ unless clearly comp)
+3. [ ] Investigate ODFL extraction gaps (AEM-specific DOM?)
+4. [ ] Add page_type filter option to eval walkthrough
+5. [ ] Verify carousel click-through captures all slides
+6. [ ] Implement monkey system for Knight-Swift (blocked sites)
+
+
+Next Eval Run
+-------------
+After fixing the report path bug, re-run with:
+```bash
+python scripts/eval_interactive.py --limit 10 --n-random 5 --n-targeted 3 --n-edge 2
+```
+
+Target: Average >= 75%, no site < 60%

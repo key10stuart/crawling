@@ -1,0 +1,391 @@
+Div 4 Series Closeout Plan (Div 4j)
+===================================
+
+Status: 2026-01-27
+Purpose: Assess remaining work, prioritize, assign to agents, close out Div 4.
+
+
+===============================================================================
+PART 1: SERIES STATUS SUMMARY
+===============================================================================
+
+| Doc  | Focus                          | Status      | Blockers/Notes            |
+|------|--------------------------------|-------------|---------------------------|
+| 4a   | Per-site config, recon, cookies| COMPLETE    | —                         |
+| 4b   | Playbooks, analytics           | COMPLETE    | —                         |
+| 4c   | Learning loop, drift           | COMPLETE    | —                         |
+| 4d   | Governance, proxy, SLOs        | PARTIAL     | Incidents, policies, proxy|
+| 4e   | Monkey system                  | COMPLETE    | —                         |
+| 4f   | Docker support                 | COMPLETE    | —                         |
+| 4g   | Pro-grade gaps (audit)         | PARTIAL     | Eval harness covers most  |
+| 4h   | Evaluation harness             | COMPLETE    | —                         |
+| 4i   | Capture/Extract refactor       | IN PROGRESS | Agent 2 extraction work   |
+| 4i0  | Parallelization plan           | PLANNING    | Reference doc             |
+
+
+===============================================================================
+PART 2: REMAINING WORK INVENTORY
+===============================================================================
+
+Priority 1 — Must Complete (Blocks Div4 Close)
+----------------------------------------------
+
+### 4i-R1: Wire extract_from_capture() into capture mode
+Owner: Agent 1
+Files: scripts/crawl.py
+Status: TODO at line 1915
+
+The capture_site_div4i() function captures pages but doesn't call extraction.
+Need to:
+1. Import extract_from_capture from fetch.extractor
+2. Call it after each capture_page()
+3. Merge extraction results into site_data
+
+Estimated scope: ~30 lines
+
+### 4i-R2: Tag-don't-strip extraction mode
+Owner: Agent 2
+Files: fetch/extractor.py, fetch/fullpage.py
+Status: Started but incomplete
+
+Current fullpage.py tags blocks but extractor.py still has STRIP_TAGS logic
+that removes nav/header/footer. Need:
+1. Add `preserve_boilerplate=True` option to extract_content()
+2. When True, keep nav/footer in tagged_blocks but mark as boilerplate
+3. Update extract_from_capture() to use this mode
+
+Estimated scope: ~50 lines
+
+### 4i-R3: Asset context enrichment
+Owner: Agent 2
+Files: fetch/extractor.py
+Status: _enrich_assets_with_context() exists but needs verification
+
+Check that:
+1. Assets have `block` field (which tagged_block they're in)
+2. Assets have `context` field (surrounding text)
+3. Assets have `classification` (logo, hero_image, content_image, etc.)
+
+Estimated scope: Review + ~30 lines if incomplete
+
+### 4i-R4: Link categorization
+Owner: Agent 2
+Files: fetch/extractor.py
+Status: _categorize_links() exists but needs verification
+
+Check that links are categorized as:
+- nav (in nav block)
+- content (in main block)
+- external (different domain)
+- document (PDF, DOC, etc.)
+
+Estimated scope: Review + ~20 lines if incomplete
+
+
+Priority 2 — Should Complete (Clean Close)
+-------------------------------------------
+
+### 4d-R1: Incident templates
+Owner: Agent 3
+Files: docs/access_incidents.md (new)
+Status: Not created
+
+Create incident template with:
+- Incident summary format
+- Severity levels
+- Root cause categories
+- Resolution playbook links
+- Postmortem template
+
+Estimated scope: ~100 lines markdown
+
+### 4d-R2: Access policies file
+Owner: Agent 3
+Files: profiles/access_policies.yaml (new)
+Status: Not created
+
+Create policy file with:
+- allow_list (domains that should always be crawled)
+- deny_list (domains to never crawl)
+- high_risk (require manual_only)
+- rate_limits (per-domain caps)
+
+Estimated scope: ~50 lines YAML + schema
+
+### 4g-R1: Per-claim audit hash in reports
+Owner: Agent 3
+Files: scripts/comp_packages_report.py
+Status: Partial (content_hash exists, snippet_hash missing)
+
+Add to comp report output:
+- snippet_hash (hash of specific text snippet)
+- page_hash reference
+- trace back to source URL + timestamp
+
+Estimated scope: ~30 lines
+
+
+Priority 3 — Nice to Have (Future Work)
+----------------------------------------
+
+### 4d-R3: Proxy strategy
+Owner: Agent 1 (future)
+Files: fetch/config.py, fetch/fetcher.py, profiles/access_playbooks.yaml
+Status: Not implemented
+
+Design decision needed:
+- Per-domain proxy config in playbook
+- Proxy rotation on block signals
+- Proxy health tracking
+
+Deferred: Complex, needs proxy infrastructure
+
+### 4g-R2: 8 skipped integration tests
+Owner: Agent 2/3
+Files: tests/test_access_integration.py
+Status: 8 tests skipped
+
+These require:
+- Full e2e wiring
+- Live site access
+- Possibly mock infrastructure
+
+Deferred: Lower priority for closeout
+
+
+===============================================================================
+PART 3: EXECUTION ORDER
+===============================================================================
+
+Phase A: Parallel Work (Agents 1 + 2)
+-------------------------------------
+Agent 1 and Agent 2 can work simultaneously on non-overlapping files.
+
+```
+Agent 1                          Agent 2
+   │                                │
+   ├─ 4i-R1: Wire extraction       ├─ 4i-R2: Tag-don't-strip
+   │  into capture mode            │  in extractor.py
+   │  (scripts/crawl.py)           │
+   │                               ├─ 4i-R3: Verify asset context
+   │                               │  (fetch/extractor.py)
+   │                               │
+   │                               ├─ 4i-R4: Verify link categorization
+   │                               │  (fetch/extractor.py)
+   │                               │
+   └─ Wait for Agent 2             └─ Deliver extraction refactor
+```
+
+Phase B: Integration Test
+-------------------------
+After both agents complete, test the full pipeline:
+
+```bash
+# Run capture mode on test domain
+python scripts/crawl.py --domain saia.com --capture-mode --depth 0
+
+# Verify outputs
+ls corpus/raw/saia.com/
+cat corpus/raw/saia.com/manifest.json
+cat corpus/sites/saia_com.json | jq '.captures[0]'
+
+# Check extraction worked
+grep -q "tagged_blocks" corpus/sites/saia_com.json && echo "OK"
+grep -q "assets" corpus/sites/saia_com.json && echo "OK"
+```
+
+Phase C: Documentation (Agent 3)
+--------------------------------
+After integration verified:
+
+```
+Agent 3
+   │
+   ├─ 4d-R1: Create docs/access_incidents.md
+   │
+   ├─ 4d-R2: Create profiles/access_policies.yaml
+   │
+   └─ 4g-R1: Add snippet_hash to comp reports
+```
+
+Phase D: Validation
+-------------------
+Full system validation:
+
+```bash
+# Run guided eval
+python scripts/eval_guided.py --quick
+
+# Run capture tests
+python -m pytest tests/test_capture.py -v
+
+# Run extraction tests
+python -m pytest tests/test_extraction.py -v
+
+# Tier 1 capture mode crawl
+python scripts/crawl.py --tier 1 --limit 5 --capture-mode --depth 1
+
+# Access report
+python scripts/access_report.py
+```
+
+
+===============================================================================
+PART 4: AGENT ASSIGNMENTS
+===============================================================================
+
+Agent 1 — Orchestrator Integration
+----------------------------------
+Scope:
+- scripts/crawl.py (wire extract_from_capture)
+
+Task:
+```python
+# In capture_site_div4i(), after captures list built:
+
+from fetch.extractor import extract_from_capture
+
+for capture in captures:
+    extraction = extract_from_capture(
+        html_path=capture.html_path,
+        url=capture.url,
+        asset_inventory=[asdict(a) for a in capture.asset_inventory],
+        screenshot_path=str(capture.screenshot_path) if capture.screenshot_path else None,
+    )
+    # Merge into site_data pages
+```
+
+Delivers: Capture mode produces enriched site JSON with extraction data
+
+
+===============================================================================
+PROGRESS LOG
+===============================================================================
+
+Entries:
+- 2026-01-27 — Agent 1 — 4i-R1 (capture/extract wiring) — `scripts/crawl.py` — capture mode now calls `extract_from_capture()` and writes extracted pages into site JSON
+
+
+Agent 2 — Extraction Refactor
+-----------------------------
+Scope:
+- fetch/extractor.py
+- fetch/fullpage.py (if needed)
+
+Tasks:
+1. Add preserve_boilerplate mode to extraction
+2. Verify asset context enrichment (_enrich_assets_with_context)
+3. Verify link categorization (_categorize_links)
+
+Delivers: extract_from_capture() returns complete ExtractionResult with:
+- tagged_blocks (including nav/footer marked as boilerplate)
+- assets with context
+- links categorized
+
+
+Agent 3 — Documentation & Reports
+---------------------------------
+Scope:
+- docs/access_incidents.md (new)
+- profiles/access_policies.yaml (new)
+- scripts/comp_packages_report.py (snippet_hash)
+
+Tasks:
+1. Create incident template doc
+2. Create policy YAML schema
+3. Add audit hash to comp reports
+
+Delivers: Governance docs, policy file, enhanced auditability
+
+
+===============================================================================
+PART 5: FILE OWNERSHIP MATRIX
+===============================================================================
+
+| File                           | Agent 1 | Agent 2 | Agent 3 | Conflict? |
+|--------------------------------|---------|---------|---------|-----------|
+| scripts/crawl.py               | MODIFY  | —       | —       | No        |
+| fetch/extractor.py             | —       | MODIFY  | —       | No        |
+| fetch/fullpage.py              | —       | MODIFY  | —       | No        |
+| docs/access_incidents.md       | —       | —       | CREATE  | No        |
+| profiles/access_policies.yaml  | —       | —       | CREATE  | No        |
+| scripts/comp_packages_report.py| —       | —       | MODIFY  | No        |
+
+No file conflicts. All agents can work in parallel.
+
+
+===============================================================================
+PART 6: SUCCESS CRITERIA
+===============================================================================
+
+Div 4 Series Complete When:
+---------------------------
+- [ ] `--capture-mode` produces site JSON with extraction data
+- [ ] tagged_blocks includes nav/footer (marked as boilerplate)
+- [ ] Assets have context (block, surrounding text, classification)
+- [ ] Links are categorized (nav/content/external/document)
+- [ ] docs/access_incidents.md exists
+- [ ] profiles/access_policies.yaml exists
+- [ ] All capture tests pass (29/29)
+- [ ] All extraction tests pass
+- [ ] eval_guided.py --quick passes
+
+Validation Command:
+```bash
+# One-liner to check all criteria
+python scripts/crawl.py --domain saia.com --capture-mode --depth 0 && \
+  python -m pytest tests/test_capture.py tests/test_extraction.py -v && \
+  python scripts/eval_guided.py --quick && \
+  echo "DIV4 COMPLETE"
+```
+
+
+===============================================================================
+PART 7: DEFERRED TO DIV 5
+===============================================================================
+
+The following are explicitly deferred:
+
+1. **Proxy strategy** (4d-R3) — requires infrastructure
+2. **8 skipped integration tests** (4g-R2) — lower priority
+3. **Knight-Swift live test** — manual validation, not blocking
+4. **Operator integration** — entire Div 5 scope
+
+These do not block Div 4 closeout.
+
+
+===============================================================================
+PART 8: TIMELINE
+===============================================================================
+
+Not providing time estimates per project guidelines.
+
+Ordering:
+1. Agent 1 + Agent 2 work in parallel (Phase A)
+2. Integration test (Phase B) — depends on both
+3. Agent 3 documentation (Phase C) — can start after Phase A
+4. Full validation (Phase D) — after all phases
+
+Recommendation: Agents 1 and 2 start now, Agent 3 can start docs immediately.
+
+
+===============================================================================
+APPENDIX: QUICK REFERENCE
+===============================================================================
+
+Remaining work by priority:
+
+P1 (Must Complete):
+- 4i-R1: Wire extract_from_capture (Agent 1, crawl.py)
+- 4i-R2: Tag-don't-strip mode (Agent 2, extractor.py)
+- 4i-R3: Asset context enrichment (Agent 2, extractor.py)
+- 4i-R4: Link categorization (Agent 2, extractor.py)
+
+P2 (Should Complete):
+- 4d-R1: Incident templates (Agent 3, new doc)
+- 4d-R2: Access policies (Agent 3, new yaml)
+- 4g-R1: Snippet hash (Agent 3, comp_packages_report.py)
+
+P3 (Deferred):
+- 4d-R3: Proxy strategy
+- 4g-R2: 8 skipped tests

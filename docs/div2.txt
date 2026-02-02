@@ -1,0 +1,344 @@
+Implementation Plan: Pro-Grade Crawling (Div 2)
+================================================
+
+Goal
+----
+Elevate the crawler from functional to production-quality with better content
+capture, standards compliance, and structured data extraction.
+
+Prerequisites from Div 1
+------------------------
+- [x] Block tagging (nav_block, footer_block, ui_block)
+- [x] Profile-based priority scoring
+- [x] Nav label normalization + synonym matching
+- [x] Feature-driven crawl hints
+- [x] crawl.py uses extract_full_page() for full_text/word_count (main_content preserved)
+- [ ] Remaining carryover: formal SiteCore object in site JSON
+- [ ] Remaining carryover: tagged_blocks emitted for all pages (not only homepage)
+- [ ] Remaining carryover: block tagging in section_tree (nav/footer/ui blocks)
+- [ ] Remaining carryover: change-detection used for reprioritization (beyond dedupe)
+
+
+Phase 1 — Content Capture Fix (Critical)
+----------------------------------------
+**Owner: Agent A (crawl.py)**
+
+1) Replace trafilatura extraction with fullpage extraction for `full_text`:
+   ```python
+   # Current (line 567-568):
+   'full_text': result.text,
+   'word_count': word_count,
+
+   # Change to:
+   full_extraction = extract_full_page(html, final_url)
+   'full_text': full_extraction.full_text,
+   'word_count': full_extraction.word_count,
+   ```
+
+2) Keep trafilatura as `main_content` for article-focused analysis:
+   ```python
+   'main_content': result.text,
+   'main_content_word_count': result.word_count,
+   ```
+
+3) Add per-page timestamp:
+   ```python
+   'crawl_timestamp': datetime.now(timezone.utc).isoformat(),
+   ```
+
+**Status**: COMPLETE (2026-01-25)
+**Success metric**: Homepage word count ~700+ instead of ~250
+
+Carryover Tickets from Div 1 (now in Div 2)
+-------------------------------------------
+**Owner: Agent A (crawl.py + schema)**
+1) Formalize `SiteCore` object in site JSON (nav, hero, CTAs, features, profile).
+2) Emit `tagged_blocks` for all pages (not just homepage).
+3) Add block tagging in section_tree (nav_block / footer_block / ui_block).
+4) Use change-detection signals to adjust crawl priority (skip/slow duplicates).
+
+Progress Update (2026-01-25)
+----------------------------
+- [x] `full_text` now uses `extract_full_page()`; `main_content` preserved.
+- [x] `tagged_blocks` emitted for all pages (via fullpage extraction).
+- [x] section_tree now uses tagged blocks when available.
+- [x] Change-detection used to suppress link expansion on duplicate pages.
+- [x] `site_core` object added to site JSON with nav + hero + features.
+- [x] Per-page `crawl_timestamp` added.
+- [x] Site-level `crawl_hints` aggregated.
+
+
+Phase 2 — Sitemap Discovery
+---------------------------
+**Owner: Agent B (new file: fetch/sitemap.py)**
+
+1) Fetch and parse sitemap.xml:
+   - Try /sitemap.xml, /sitemap_index.xml, /sitemaps/sitemap.xml
+   - Handle sitemap index files (nested sitemaps)
+   - Extract: loc, lastmod, changefreq, priority
+
+2) Integrate with crawl queue:
+   - Seed queue from sitemap URLs
+   - Use sitemap priority for queue ordering
+   - Use lastmod for incremental crawl decisions
+
+3) Store sitemap metadata:
+   ```python
+   'sitemap': {
+       'found': True,
+       'url': 'https://example.com/sitemap.xml',
+       'url_count': 150,
+       'last_modified': '2025-01-20',
+   }
+   ```
+
+**Deliverable**: `fetch/sitemap.py` with `discover_sitemap()`, `parse_sitemap()`
+
+**Status**: COMPLETE (Agent B, 2026-01-25)
+- Created `fetch/sitemap.py`
+- `discover_sitemap()`: Tries common paths, robots.txt hints
+- `parse_sitemap()`: Handles index files, extracts loc/lastmod/priority
+- Tested on Schneider: found sitemap.xml with URLs
+
+
+Phase 3 — Robots.txt Compliance
+-------------------------------
+**Owner: Agent B (new file: fetch/robots.py)**
+
+1) Fetch and parse robots.txt:
+   - Cache per domain (don't re-fetch every request)
+   - Parse User-agent, Disallow, Allow, Crawl-delay, Sitemap
+
+2) Check URL allowance before fetching:
+   ```python
+   from fetch.robots import RobotsChecker
+
+   robots = RobotsChecker(domain)
+   if robots.is_allowed(url):
+       # proceed with fetch
+   else:
+       # skip, log as disallowed
+   ```
+
+3) Respect Crawl-delay:
+   - Use robots Crawl-delay if specified
+   - Fall back to default REQUEST_DELAY
+
+4) Store robots metadata:
+   ```python
+   'robots': {
+       'found': True,
+       'crawl_delay': 2.0,
+       'disallowed_paths': ['/admin', '/private'],
+       'sitemap_hints': ['https://example.com/sitemap.xml'],
+   }
+   ```
+
+**Deliverable**: `fetch/robots.py` with `RobotsChecker` class
+
+**Status**: COMPLETE (Agent B, 2026-01-25)
+- Created `fetch/robots.py`
+- `RobotsChecker.fetch()`: Cached per-domain checker
+- `is_allowed()`: Uses Python's RobotFileParser
+- Extracts Crawl-delay, Sitemap hints
+- Tested on Schneider: all paths allowed, sitemap hint found
+
+
+Phase 4 — Structured Data Extraction (JSON-LD)
+----------------------------------------------
+**Owner: Agent B (new file: fetch/structured.py)**
+
+1) Extract JSON-LD from pages:
+   - Find all <script type="application/ld+json">
+   - Parse and validate JSON
+   - Handle multiple JSON-LD blocks per page
+
+2) Extract common schema types:
+   - Organization: name, logo, address, contactPoint
+   - LocalBusiness: same + geo, openingHours
+   - Service: name, description, provider
+   - WebPage: name, description, breadcrumb
+   - Product: name, description, offers
+
+3) Aggregate at site level:
+   ```python
+   'structured_data': {
+       'organization': {
+           'name': 'Schneider National',
+           'logo': 'https://...',
+           'address': {...},
+       },
+       'services': [
+           {'name': 'Intermodal', 'description': '...'},
+           {'name': 'Dedicated', 'description': '...'},
+       ],
+   }
+   ```
+
+**Deliverable**: `fetch/structured.py` with `extract_jsonld()`, `aggregate_structured()`
+
+**Status**: COMPLETE (Agent B, 2026-01-25)
+- Created `fetch/structured.py`
+- `extract_jsonld()`: Parses <script type="application/ld+json">
+- Extracts: Organization, WebSite, Service, Product, BreadcrumbList, FAQPage
+- `aggregate_structured()`: Merges across pages
+- Tested on Old Dominion: found Organization schema
+
+
+Phase 5 — Retry & Error Handling
+--------------------------------
+**Owner: Agent A (crawl.py)**
+
+1) Implement exponential backoff:
+   ```python
+   def fetch_with_retry(url, max_retries=3):
+       for attempt in range(max_retries):
+           try:
+               return fetch_page(url)
+           except (Timeout, ConnectionError) as e:
+               delay = 2 ** attempt  # 1, 2, 4 seconds
+               time.sleep(delay)
+       return None, None
+   ```
+
+2) Track fetch failures:
+   ```python
+   'fetch_stats': {
+       'success': 45,
+       'failed': 3,
+       'retried': 5,
+       'disallowed': 2,
+   }
+   ```
+
+3) Log errors with context:
+   - URL, error type, attempt count, final status
+
+
+Phase 6 — Incremental Crawl Support
+-----------------------------------
+**Owner: Agent A (crawl.py)**
+
+1) Load previous crawl state:
+   - Read existing site JSON if present
+   - Build map of URL -> content_hash
+
+2) Skip unchanged pages:
+   - Fetch HEAD first to check Last-Modified / ETag
+   - Compare content_hash after fetch
+   - Mark as `unchanged: true` if same
+
+3) Track changes:
+   ```python
+   'page': {
+       'changed_since_last': True,
+       'previous_hash': 'abc123',
+       'current_hash': 'def456',
+   }
+   ```
+
+4) CLI flag: `--incremental` to enable
+
+Progress Update (2026-01-25)
+----------------------------
+- [x] Retry/backoff implemented in crawl loop (MAX_FETCH_RETRIES).
+- [x] Fetch stats added to site JSON (`fetch_stats`).
+- [x] Incremental crawl support (previous hash map + changed_since_last).
+- [x] CLI flag `--incremental` wired.
+
+
+Phase 7 — Output Formats
+------------------------
+**Owner: Agent B (new file: scripts/export.py)**
+
+1) JSONL export (one JSON object per line):
+   ```bash
+   python scripts/export.py --site corpus/sites/schneider_com.json --format jsonl
+   ```
+
+2) CSV export (flat table of pages):
+   - Columns: url, title, word_count, page_type, product, features
+
+3) Summary export (condensed overview):
+   - Key metrics, coverage, features, top terms
+
+**Status**: COMPLETE (Agent B, 2026-01-25)
+- Created `scripts/export.py`
+- JSONL: One record per page with site context
+- CSV: Flat table with key fields
+- Summary: Aggregated metrics and features
+- Tested: exported Schneider to summary format
+
+
+Parallel Work Delegation
+------------------------
+
+### Agent A (Codex) — Core crawl loop
+**Owned files:**
+- `scripts/crawl.py`
+- `schema.py`
+
+**Tasks:**
+1. Phase 1: Fullpage extraction fix (CRITICAL)
+2. Phase 5: Retry & error handling
+3. Phase 6: Incremental crawl support
+
+### Agent B (Claude) — Extraction & compliance
+**Owned files:**
+- `fetch/sitemap.py` (new)
+- `fetch/robots.py` (new)
+- `fetch/structured.py` (new)
+- `scripts/export.py` (new)
+- `fetch/fullpage.py`
+- `fetch/profile.py`
+
+**Tasks:**
+1. Phase 2: Sitemap discovery
+2. Phase 3: Robots.txt compliance
+3. Phase 4: JSON-LD extraction
+4. Phase 7: Export formats
+
+
+Milestones
+----------
+**M1**: Fullpage extraction fix + sitemap discovery
+**M2**: Robots.txt compliance + JSON-LD extraction
+**M3**: Retry handling + incremental crawl
+**M4**: Export formats + final review
+
+
+Success Criteria
+----------------
+- [x] Homepage word count 700+ (not 250) — Agent A
+- [x] Sitemap URLs discovered and crawled — Agent B
+- [x] Robots.txt respected (no disallowed fetches) — Agent B
+- [x] JSON-LD organization data extracted — Agent B
+- [x] Retry on transient failures — Agent A
+- [x] Incremental crawl skips unchanged pages — Agent A
+- [x] Export to JSONL/CSV working — Agent B
+
+
+Estimated Complexity
+--------------------
+Phase 1: Low (config change)
+Phase 2: Medium (new module, XML parsing)
+Phase 3: Medium (new module, spec compliance)
+Phase 4: Medium (JSON-LD parsing, schema mapping)
+Phase 5: Low (wrap existing fetch)
+Phase 6: Medium (state management)
+Phase 7: Low (format conversion)
+
+
+Progress Update (2026-01-26)
+----------------------------
+**Agent A integration complete:**
+- Wired `fetch/robots.py` into crawl loop (robots compliance + crawl delay).
+- Wired `fetch/sitemap.py` into crawl loop (sitemap discovery + seeding, capped).
+- Wired `fetch/structured.py` into crawl loop (per-page JSON-LD + site aggregate).
+
+**Files touched:**
+- `scripts/crawl.py`
+
+**Status changes:**
+- Success Criteria: Robots compliance and JSON-LD now fully integrated in crawl output.
+- Success Criteria: Retry + incremental already completed earlier in Agent A phase work.

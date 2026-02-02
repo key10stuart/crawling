@@ -1,0 +1,25 @@
+Model Understanding of Core Intent
+==================================
+
+This crawler exists to build a reliable, structured corpus of trucking‑carrier
+websites for analysis — not just summaries.
+
+Core intent:
+1) Capture meaningful content (text + images + code) for comparative analysis.
+2) Preserve structure (section hierarchy + ordered blocks) for drill‑down.
+3) Detect site capabilities (portals, tracking, integrations, API hints) from
+   passive signals in HTML.
+4) Archive raw HTML with hashes so re‑extraction is possible as tooling improves.
+5) Maintain provenance and confidence so downstream analyses can trust or flag
+   outputs.
+
+Outcome: a consistent, navigable dataset that reflects how carriers present
+capabilities, messaging, and tooling — suitable for longitudinal comparison,
+feature discovery, and model‑assisted analysis.
+
+Expanded Scope Note
+-------------------
+We want comprehensive capture: ALL text, images, and code — reliably tagged —
+with a target of ~99% extraction success. This includes both:
+- Main content (marketing copy, articles, features)
+- Structural/UI content (nav, footer, tabs, accordions, selectors)

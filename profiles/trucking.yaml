@@ -1,0 +1,84 @@
+# Trucking Carrier Crawl Profile
+# Used for: TL, LTL, 3PL, intermodal carriers
+name: trucking
+
+# Path priority scoring (regex patterns)
+priority:
+  high:
+    - /service
+    - /solution
+    - /freight
+    - /shipping
+    - /transport
+    - /carrier
+    - /shipper
+    - /tracking
+    - /intermodal
+    - /truckload
+    - /ltl
+    - /drayage
+    - /dedicated
+    - /brokerage
+    - /logistics
+    - /technology
+    - /platform
+    - /api
+  medium:
+    - /resource
+    - /blog
+    - /news
+    - /case-study
+    - /about
+    - /company
+    - /contact
+  low:
+    - /privacy
+    - /terms
+    - /accessibility
+    - /cookie
+    - /legal
+    - /sitemap
+    - /careers
+    - /job
+    - /investor
+
+# Nav labels that indicate key sections (for coverage tracking)
+# Note: Trucking sites often use specific service names instead of generic "services"
+# e.g., "Dedicated", "Intermodal", "Truckload" instead of "Services"
+expected_nav_sections:
+  - solutions       # or "freight-shipping-solutions", "logistics"
+  - carriers        # or "haul with us", "owner operators", "drive for us"
+  - technology      # or "platform", "tech", "freightpower"
+  - resources       # or "tools", "calculators", "insights"
+  - about           # or "company", "who we are", "our story"
+
+# Features to flag when detected
+features_of_interest:
+  - customer_portal
+  - carrier_portal
+  - tracking
+  - EDI
+  - TMS
+  - API
+  - OAuth
+
+# Industry terms to boost in term counting
+industry_terms:
+  - intermodal
+  - truckload
+  - ltl
+  - drayage
+  - dedicated
+  - brokerage
+  - 3pl
+  - supply chain
+  - freight
+  - capacity
+  - visibility
+
+# Crawl behavior
+settings:
+  max_depth: 2
+  max_pages: 100
+  prioritize_nav: true
+  skip_external: true

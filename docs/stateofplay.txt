@@ -1,0 +1,220 @@
+# Crawling Service - State of Play
+# Updated: 2026-01-27
+
+## Summary
+
+Universal access crawling system for trucking carrier competitive intelligence.
+
+**Status**: Div 4 ALMOST COMPLETE. Architecture done, testing and verification remain.
+
+Completed:
+- Orchestrator refactored (crawl.py: 2162 → 523 lines)
+- Capture pipeline is default execution path
+- Recon → method selection wired (SPA detection works)
+- orchestrate/ modules extracted (config, fetch_spec, presenter)
+- Educational docs created (docs/edu/)
+
+Remaining:
+- Full tier crawls to verify extraction quality
+- Downstream tool fixes (render_extraction.py, export.py)
+- SLO measurement after corpus populated
+
+**Reality check**: Only 6.1% access success rate. Most domains need crawling or are blocked.
+The extraction works; the access layer needs attention.
+
+
+## What Works Right Now
+
+```bash
+# Crawl tier-1 carriers (uses capture pipeline by default)
+python scripts/crawl.py --tier 1 --limit 5 --fetch-method requests
+
+# Check access status
+python scripts/access_report.py
+
+# Run smoke tests
+python tests/t1.py   # --help
+python tests/t6.py   # access report
+python tests/t8.py   # pytest (32 tests)
+
+# Process blocked sites manually
+python scripts/monkey.py --next
+```
+
+
+## Architecture (Post-Refactor)
+
+```
+scripts/crawl.py (488 lines)
+    │
+    ├── CLI parsing
+    ├── orchestrate.config → load seeds, profiles, run config
+    ├── orchestrate.fetch_spec → resolve fetch method
+    ├── capture_site() → main execution
+    └── orchestrate.presenter → build site JSON
+
+orchestrate/
+├── config.py        # Seeds, profiles, freshness checking
+├── fetch_spec.py    # Method resolution, FetchConfig building
+└── presenter.py     # Site JSON construction
+
+fetch/
+├── capture.py       # Two-phase capture pipeline
+├── extractor.py     # Content extraction + block tagging
+├── fullpage.py      # Tagged blocks (nav/hero/main/footer)
+├── recon.py         # CDN/WAF fingerprinting
+├── fetcher.py       # HTTP + Playwright fetch
+├── monkey.py        # Record/replay system
+└── human.py         # Human emulation (mouse, timing)
+```
+
+
+## Div Series Status
+
+| Div | Purpose | Status |
+|-----|---------|--------|
+| 1 | Core crawl pipeline | COMPLETE |
+| 2 | Compliance & structured data | COMPLETE |
+| 3 | Comp packages monitoring | PARTIAL (scripts exist, not fully wired) |
+| 4 | Adaptive access layer | ALMOST COMPLETE |
+| 4a-4h | Access subsystems | COMPLETE |
+| 4i | Capture/extract refactor | COMPLETE |
+| 4j | Parallelization, Docker | COMPLETE |
+| 4k | Orchestrator refactor + QA | ARCHITECTURE DONE, TESTING REMAINS |
+| 5 | Operator integration | PLANNING ONLY |
+
+### What "Almost Complete" Means
+
+Architecture is done:
+- [x] crawl.py refactored (523 lines, was 2162)
+- [x] orchestrate/ modules (config, fetch_spec, presenter)
+- [x] Capture → Extract → Present pipeline
+- [x] Recon → method upgrade for SPAs
+- [x] Smoke tests created (tests/t1-t9.py)
+- [x] Educational docs (docs/edu/)
+
+Testing/verification needed:
+- [ ] Full tier-1 Docker crawl (t9)
+- [ ] Verify SPA sites extract correctly (saia, etc.)
+- [ ] Fix downstream tools (render_extraction.py, export.py)
+- [ ] Measure SLOs after corpus populated
+- [ ] Final QA sweep per div4k Part 5
+
+### Div 4k - Current Focus
+
+Orchestrator refactor DONE:
+- [x] Phase 1: orchestrate/config.py (150 lines extracted)
+- [x] Phase 2: orchestrate/fetch_spec.py (100 lines extracted)
+- [x] Phase 3-4: fetch/content.py, section_tree.py (moved)
+- [x] Phase 5: Removed legacy crawl_site() (745 lines)
+- [x] Phase 6: orchestrate/presenter.py, simplified main
+
+QA validation IN PROGRESS:
+- [x] Smoke tests created (tests/t1.py through t8.py)
+- [x] T1, T6, T8 passing
+- [ ] T2-T5, T7 need live crawls / GUI / Docker
+- [ ] Downstream tool fixes needed (render_extraction.py, export.py)
+- [ ] Full tier crawl to measure SLOs
+
+See docs/div4k.txt for detailed test matrix and issues.
+
+
+## Current Metrics
+
+From `python scripts/access_report.py`:
+
+| Metric | Current | Target |
+|--------|---------|--------|
+| Overall success | 6.1% | 80%+ |
+| Tier-1 success | 25% | 95% |
+| Block rate | 4.1% | <10% |
+| HTTP efficiency | 0% | 60% |
+
+Root cause: Most domains have no crawl data (haven't been crawled recently).
+Knight-swift.com blocked by StackPath CAPTCHA.
+
+
+## Known Issues (for Agent 1)
+
+1. **render_extraction.py line 80**: TypeError - expects `page['main_content']`
+   as string but capture mode gives dict `{text, word_count, method}`
+
+2. **export.py**: Shows Words: 0 for capture mode sites (word count location differs)
+
+3. **Execution log warning**: 'total_word_count' key error (minor)
+
+
+## Quick Reference
+
+```bash
+# Crawl single domain
+python scripts/crawl.py --domain jbhunt.com --depth 2
+
+# Tier crawl with parallel workers
+python scripts/crawl.py --tier 1 -j 4 --progress
+
+# Docker crawl (needs GUI user)
+./scripts/docker_crawl.sh --tier 1 --limit 5
+
+# Check blocked sites
+python scripts/access_report.py
+
+# Process monkey queue
+python scripts/monkey.py --list
+python scripts/monkey.py --next
+
+# Run all smoke tests
+for i in 1 6 8; do python tests/t$i.py; done
+
+# Run pytest
+pytest tests/test_capture.py tests/test_extraction.py -v
+
+# Evaluate extractions
+python scripts/eval_extraction.py --auto --limit 5
+```
+
+
+## Key Files
+
+```
+scripts/
+├── crawl.py              # Main entry (488 lines, refactored)
+├── access_report.py      # SLO metrics
+├── monkey.py             # Human-in-loop CLI
+├── eval_extraction.py    # Auto-evaluate extractions
+├── render_extraction.py  # HTML reports (needs fix)
+└── export.py             # Data export (needs fix)
+
+orchestrate/
+├── config.py             # load_seeds, load_run_config, freshness
+├── fetch_spec.py         # resolve_fetch_spec, _build_fetch_config
+└── presenter.py          # build_site_json, count helpers
+
+tests/
+├── t1.py - t8.py         # Standalone smoke tests
+├── test_capture.py       # 29 capture tests
+├── test_extraction.py    # 3 extraction tests
+└── test_access_integration.py # 34 access tests
+
+docs/
+├── div4k.txt             # Current work: QA + intent alignment
+├── div4*.txt             # Div 4 subsystem specs
+└── stateofplay.txt       # This file
+```
+
+
+## Next Steps
+
+1. **Run full tier-1 crawl** with GUI user (Playwright access)
+2. **Fix downstream tools** (render_extraction.py, export.py)
+3. **Measure SLOs** after crawl data exists
+4. **Process monkey queue** for blocked sites (knight-swift, etc.)
+5. **Complete T2-T7** smoke tests with live data
+6. **User intent validation** per div4k Part 1
+
+The system works. The data pipeline works. We just need to:
+- Actually crawl the carriers
+- Handle the blocked ones with monkey flows
+- Fix a couple display scripts
+
+This may take plenty more work.

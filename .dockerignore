@@ -1,0 +1,12 @@
+corpus/
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.git/
+.claude/
+.venv/
+.claude/
+.DS_Store
+*.pyc
+node_modules/

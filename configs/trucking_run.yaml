@@ -1,0 +1,10 @@
+profile: trucking
+depth: 2
+limit: 60
+tier: 1
+incremental: true
+jobs: 4
+js_auto: true
+js_fallback: true
+js_min_words: 200
+run_id: trucking

@@ -1,0 +1,147 @@
+Implementation Plan: Adaptive Access Layer (Div 4b)
+===================================================
+
+Goal
+----
+Harden the access layer for scale by adding behavior controls, richer
+diagnostics, and domain-specific playbooks. Div 4b extends Div 4a by making
+the system safer, more observable, and cheaper to run at volume.
+
+Core Intent Alignment
+---------------------
+Maintain a 99% capture target for ALL text, images, and code while minimizing
+block risk and stabilizing crawl behavior across runs.
+
+Deliverables (Div 4b)
+---------------------
+1) Behavior controls (session policy, pacing, and retry strategy)
+2) Domain playbooks (lightweight, optional, human-editable)
+3) Access analytics + dashboards for success/failure patterns
+4) Safe fallbacks for "visible" mode and manual-only escalation
+5) Cost controls for JS/stealth usage
+
+
+Phase 1 — Behavior Controls (Session + Pacing + Retry)
+------------------------------------------------------
+**Owner: Agent 1**
+
+1) Add a `BehaviorPolicy` to crawl config
+   - `session_scope`: per_domain | per_site | per_page
+   - `max_retries`: default 2
+   - `retry_backoff`: base + jitter
+   - `slow_drip`: optional per-site override
+   - `min_delay`, `max_delay` for adaptive pacing
+
+2) Adaptive pacing
+   - If block signals appear, increase delay + reduce parallelism.
+   - If clean success, relax to baseline delay.
+
+3) Retry classification
+   - Retry only on transient errors (timeouts, 429, 503).
+   - Skip retries on hard blocks (captcha/denylist).
+
+Success criteria
+- Block rate decreases on high-risk sites without reducing capture.
+- Retry attempts are bounded and visible in logs/output.
+
+
+Phase 2 — Domain Playbooks (Lightweight Overrides)
+--------------------------------------------------
+**Owner: Agent 3**
+
+1) Add `profiles/access_playbooks.yaml`
+   - Per-domain overrides: preferred strategy, delay, headless/visible.
+   - Optional selectors to ignore or avoid (e.g., known trap links).
+
+2) Precedence rules
+   - CLI > run-config > playbook > seed fetch > defaults
+
+3) Minimal schema
+   ```yaml
+   schneider.com:
+     strategy: js
+     delay: 4.0
+     headless: true
+     max_pages: 200
+   jbhunt.com:
+     strategy: stealth
+     delay: 5.0
+     headless: true
+     notes: aem + cloudflare
+   ```
+
+Success criteria
+- Operators can fix hard sites by updating a single YAML entry.
+- No code change required to adopt a new playbook.
+
+
+Phase 3 — Access Analytics (Observability)
+------------------------------------------
+**Owner: Agent 3**
+
+1) Emit access events (JSONL)
+   - start/end, method, retries, blocks, and elapsed time
+
+2) Add summary report script
+   - Top blocked domains
+   - Success by method (requests/js/stealth/visible)
+   - Average time per page, by method
+
+3) Optional: HTML report in `corpus/reports/access/`
+
+Success criteria
+- A single report answers: what failed, why, and where cost is concentrated.
+
+
+Phase 4 — Safe Visible Mode (Manual-Only Escalation)
+----------------------------------------------------
+**Owner: Agent 1**
+
+1) Add `manual_only` flag in config/playbook
+   - If set, do not auto-run visible; log a diagnostic instead.
+
+2) Provide a CLI helper
+   - `scripts/access_run.py --domain x --visible` to run only one site.
+
+3) Document "visible mode" risks in `docs/stateofplay.txt`
+
+Success criteria
+- Visible runs are explicit, isolated, and auditable.
+
+
+Phase 5 — Cost Controls
+-----------------------
+**Owner: Agent 1**
+
+1) Add method budgets
+   - `max_js_pages`, `max_stealth_pages` per run
+
+2) Strategy throttling
+   - If budget exceeded, fall back to non-JS and annotate.
+
+Success criteria
+- Runs remain within expected time/cost while retaining coverage.
+
+
+Milestones
+----------
+M1: Behavior policy + adaptive pacing
+M2: Domain playbooks
+M3: Access analytics report
+M4: Manual-only visible mode
+M5: Cost controls
+
+
+Risk Notes
+----------
+- Adaptive pacing could slow low-risk sites if mis-tuned.
+- Playbooks can drift and require periodic cleanup.
+- Analytics output size may grow; keep JSONL compact.
+
+
+Test Plan
+---------
+1) Unit tests for behavior policy (retry/backoff classification)
+2) Playbook parsing tests (precedence, invalid keys)
+3) Integration: compare block rate on a known blocked domain
+4) Regression: ensure default runs unchanged when no playbooks present

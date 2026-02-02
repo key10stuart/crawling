@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Accordion Test Fixture</title>
+    <style>
+        .accordion-content { display: none; padding: 1rem; background: #f5f5f5; }
+        .accordion-content.active { display: block; }
+        .accordion-header { cursor: pointer; padding: 1rem; background: #e0e0e0; margin-top: 0.5rem; }
+    </style>
+</head>
+<body>
+    <h1>FAQ Section</h1>
+    <p>This page contains frequently asked questions about our trucking services.</p>
+
+    <!-- Accordion using aria-expanded -->
+    <div class="accordion">
+        <div class="accordion-item">
+            <button class="accordion-header" aria-expanded="false" aria-controls="panel1">
+                What shipping services do you offer?
+            </button>
+            <div id="panel1" class="accordion-content">
+                We offer full truckload (FTL), less-than-truckload (LTL), intermodal transportation,
+                dedicated fleet services, and last-mile delivery solutions. Our network covers all
+                48 contiguous states with over 500 terminals nationwide. We specialize in temperature-
+                controlled shipments, hazmat transportation, and oversized freight handling.
+            </div>
+        </div>
+
+        <div class="accordion-item">
+            <button class="accordion-header" aria-expanded="false" aria-controls="panel2">
+                How do I track my shipment?
+            </button>
+            <div id="panel2" class="accordion-content">
+                You can track your shipment in real-time using our online portal or mobile app.
+                Simply enter your PRO number or bill of lading number to get instant updates on
+                location, estimated delivery time, and any exceptions. Our AI-powered visibility
+                platform provides predictive ETAs with 95% accuracy.
+            </div>
+        </div>
+
+        <div class="accordion-item">
+            <button class="accordion-header" aria-expanded="false" aria-controls="panel3">
+                What are your sustainability initiatives?
+            </button>
+            <div id="panel3" class="accordion-content">
+                We are committed to reducing our carbon footprint through fleet modernization,
+                alternative fuels, and route optimization. Our initiatives include transitioning
+                to electric vehicles for last-mile delivery, using biodiesel blends for long-haul,
+                implementing idle-reduction technology, and investing in carbon offset programs.
+                We have achieved a 25% reduction in emissions per mile since 2020.
+            </div>
+        </div>
+    </div>
+
+    <!-- Details/Summary (native HTML accordion) -->
+    <h2>Additional Information</h2>
+    <details>
+        <summary>Driver requirements and qualifications</summary>
+        <p>
+            All drivers must have a valid CDL-A license, minimum 2 years of experience,
+            clean MVR, and pass DOT physical and drug screening. We provide ongoing training
+            in safety, fuel efficiency, and customer service. Benefits include competitive pay,
+            health insurance, 401k matching, and paid time off.
+        </p>
+    </details>
+
+    <details>
+        <summary>Insurance and liability coverage</summary>
+        <p>
+            We maintain comprehensive insurance coverage including $1M auto liability,
+            $100K cargo insurance, and $5M umbrella policy. All shipments are protected
+            against loss or damage. Additional coverage options are available for high-value
+            or specialized freight.
+        </p>
+    </details>
+
+    <script>
+        // Simple accordion toggle
+        document.querySelectorAll('.accordion-header').forEach(header => {
+            header.addEventListener('click', () => {
+                const expanded = header.getAttribute('aria-expanded') === 'true';
+                header.setAttribute('aria-expanded', !expanded);
+                const content = document.getElementById(header.getAttribute('aria-controls'));
+                content.classList.toggle('active');
+            });
+        });
+    </script>
+</body>
+</html>

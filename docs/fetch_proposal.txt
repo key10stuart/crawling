@@ -1,0 +1,554 @@
+PROPOSAL: Unified Fetch & Extract Infrastructure
+================================================
+2026-01-25
+
+PROBLEM STATEMENT
+-----------------
+
+We need reliable content extraction across multiple use cases:
+
+1. Corpus crawling (trucking carriers, other domains) - batch, depth-limited
+2. Sitrep source fetching - real-time, single URL, claim extraction downstream
+3. oc browser tool replacement - clean text for LLM consumption
+
+Current state:
+- crawl.py has working density scorer but no fallback chain
+- Browser tool returns raw HTML (token blowups, 200KB+ per page)
+- No content hashing for citation stability
+- No quality detection (silent failures)
+- JS rendering works but isn't integrated into fallback logic
+
+Target: 99%+ success rate on content extraction.
+
+
+FAILURE MODE ANALYSIS
+---------------------
+
+| Failure Type              | Cause                                    | Est. Frequency |
+|---------------------------|------------------------------------------|----------------|
+| Network/fetch failure     | Timeout, 403/404, rate limit, DNS        | 5-10%          |
+| JS-dependent content      | SPA, React, lazy-load, hydration         | 20-30% of sites|
+| Anti-bot blocking         | Cloudflare, captcha, fingerprinting      | 5-15%          |
+| Extraction returns junk   | Algorithm fooled by structure            | 2-5%           |
+| Extraction returns empty  | Edge case HTML, encoding issues          | 1-2%           |
+| Paywall/login gate        | Content exists but inaccessible          | varies by site |
+
+Trafilatura benchmark: F1=0.958 (i.e., ~4% extraction issues on average).
+For 99%+, we need fallback chains + quality detection + graceful degradation.
+
+
+ARCHITECTURE
+------------
+
+```
+fetch_and_extract(url)
+│
+├─ FETCH LAYER ──────────────────────────────────────────────────────
+│   │
+│   ├─ Strategy 1: requests (fast, low overhead)
+│   │   └─ if: timeout, status error, or word_count < MIN_WORDS
+│   │
+│   ├─ Strategy 2: playwright (JS rendering)
+│   │   └─ if: still blocked or word_count < MIN_WORDS
+│   │
+│   └─ Strategy 3: playwright + stealth (anti-bot evasion)
+│       └─ headers rotation, fingerprint masking
+│
+├─ EXTRACT LAYER ────────────────────────────────────────────────────
+│   │
+│   ├─ Strategy 1: trafilatura (best F1, includes metadata)
+│   │   └─ if: quality_check fails
+│   │
+│   ├─ Strategy 2: readability-lxml (different algorithm)
+│   │   └─ if: quality_check fails
+│   │
+│   └─ Strategy 3: density_scorer (current crawl.py approach)
+│       └─ if: all fail → return best attempt + flag
+│
+├─ QUALITY GATE ─────────────────────────────────────────────────────
+│   │
+│   ├─ word_count >= MIN_WORDS (default: 50)
+│   ├─ link_density < MAX_LINK_DENSITY (default: 0.4)
+│   ├─ text != title (degenerate extraction check)
+│   ├─ text not in BOILERPLATE_PATTERNS (cookie notices, etc.)
+│   └─ if fails: try next extractor or flag low confidence
+│
+├─ ARCHIVE LAYER ────────────────────────────────────────────────────
+│   │
+│   └─ Always save raw HTML with metadata
+│       └─ Enables re-extraction when algorithms improve
+│
+└─ OUTPUT ───────────────────────────────────────────────────────────
+    │
+    └─ Structured source element (see schema below)
+```
+
+
+OUTPUT SCHEMA
+-------------
+
+```python
+SourceElement = {
+    # Identity
+    'url': str,                    # original requested URL
+    'final_url': str,              # after redirects
+    'content_hash': str,           # sha256[:16] of extracted text
+
+    # Temporal
+    'fetch_time': str,             # ISO 8601 UTC
+    'publish_date': str | None,    # extracted from content if available
+
+    # Provenance
+    'fetch_method': Literal['requests', 'playwright', 'playwright_stealth'],
+    'extract_method': Literal['trafilatura', 'readability', 'density'],
+    'confidence': Literal['high', 'medium', 'low'],
+
+    # Content
+    'title': str,
+    'author': str | None,
+    'text': str,
+    'word_count': int,
+
+    # Archival
+    'raw_html_path': str | None,   # path to archived HTML
+    'raw_html_hash': str,          # hash of raw HTML (detect source changes)
+}
+```
+
+
+DEPENDENCIES
+------------
+
+Required:
+- trafilatura          # primary extractor, F1=0.958, includes metadata
+- readability-lxml     # fallback extractor, different algorithm
+- beautifulsoup4       # density scorer (already have)
+- lxml                 # HTML parsing (already have)
+- playwright           # JS rendering (already have)
+- requests             # HTTP client (already have)
+
+Optional:
+- playwright-stealth   # anti-bot evasion for difficult sites
+
+Install:
+    pip install trafilatura readability-lxml playwright-stealth
+
+
+FILE STRUCTURE
+--------------
+
+Primary location (cyberspace/pt1/crawling/):
+
+```
+cyberspace/pt1/crawling/
+├── scripts/
+│   ├── crawl.py              # existing, will import from fetch/
+│   └── ...
+├── fetch/
+│   ├── __init__.py           # exports fetch_source()
+│   ├── fetcher.py            # fetch layer (requests → playwright → stealth)
+│   ├── extractor.py          # extract layer (trafilatura → readability → density)
+│   ├── quality.py            # quality checks and confidence scoring
+│   ├── hasher.py             # content hashing utilities
+│   └── config.py             # thresholds, timeouts, user agents
+├── tests/
+│   ├── test_fetcher.py
+│   ├── test_extractor.py
+│   ├── test_quality.py
+│   └── fixtures/             # sample HTML files for testing
+└── fetch_proposal.txt        # this document
+```
+
+Secondary (oc integration via import or port):
+
+```
+projectA/oc/
+└── utils/
+    └── fetch.py              # either:
+                              #   - imports from cyberspace/pt1/crawling/fetch
+                              #   - or ports/vendors the module
+                              # decision deferred until fetch/ is stable
+```
+
+Rationale: crawling is the primary use case with highest volume and strictest
+reliability requirements. Build and harden there first, then expose to oc for
+sitrep and browser tool use cases.
+
+
+API DESIGN
+----------
+
+Primary interface:
+
+```python
+from fetch import fetch_source
+
+# Single URL fetch (sitrep, browser tool replacement)
+result = fetch_source("https://reuters.com/article/...")
+
+# Returns SourceElement dict or None if unrecoverable
+```
+
+Batch interface (for crawling):
+
+```python
+from fetch import fetch_source, FetchConfig
+
+config = FetchConfig(
+    js_fallback=True,           # try playwright if requests yields low content
+    js_always=False,            # don't use playwright for every request
+    stealth_fallback=True,      # try stealth if blocked
+    archive_html=True,          # save raw HTML
+    archive_dir=Path("./raw"),
+    min_words=50,
+    request_delay=3.0,
+    timeout=15,
+)
+
+result = fetch_source(url, config=config)
+```
+
+Integration with crawl.py:
+
+```python
+# In crawl.py, replace:
+#   html, final_url = fetch_page(session, url, js_renderer)
+#   content = extract_content(html, final_url)
+
+# With:
+from fetch import fetch_source, FetchConfig
+
+config = FetchConfig(archive_dir=RAW_DIR / domain, ...)
+result = fetch_source(url, config=config)
+
+if result:
+    page_data = {
+        'url': result['final_url'],
+        'title': result['title'],
+        'full_text': result['text'],
+        'word_count': result['word_count'],
+        'content_hash': result['content_hash'],
+        'fetch_method': result['fetch_method'],
+        'extract_method': result['extract_method'],
+        # ...
+    }
+```
+
+
+QUALITY THRESHOLDS
+------------------
+
+Tunable parameters with sensible defaults:
+
+```python
+MIN_WORDS = 50              # below this, try next strategy
+MAX_LINK_DENSITY = 0.4      # above this, likely nav/boilerplate
+MIN_TEXT_DENSITY = 5.0      # chars per tag, below = sparse content
+CONFIDENCE_HIGH_WORDS = 200 # above this + good metrics = high confidence
+CONFIDENCE_LOW_WORDS = 100  # below this even with extraction = low confidence
+```
+
+Confidence assignment logic:
+
+```
+HIGH:   word_count >= 200 AND link_density < 0.3 AND extract_method == 'trafilatura'
+MEDIUM: word_count >= 100 AND link_density < 0.4
+LOW:    everything else (still return content, but flag for review)
+```
+
+
+EXTRACTION ALGORITHM COMPARISON
+-------------------------------
+
+Current crawl.py approach vs trafilatura:
+
+### What crawl.py Does (lines 178-242)
+
+```python
+# 1. Strip known-bad tags
+STRIP_TAGS = ['script', 'style', 'nav', 'header', 'footer', 'aside', ...]
+STRIP_CLASSES = ['cookie', 'modal', 'popup', 'advertisement', ...]
+
+# 2. Score remaining containers
+for node in soup.find_all(['article', 'main', 'section', 'div', 'body']):
+    text_density = text_len / (tags + 1)
+    link_density = link_text / (text_len + 1)
+    score = text_density * (1 - link_density)
+
+# 3. Return highest scorer
+```
+
+### What Trafilatura Does
+
+1. Multi-algorithm cascade: Own algorithm → jusText → readability-lxml internally
+2. Character-level analysis: jusText looks at character counts, not just tag counts
+3. Paragraph classification: Classifies each paragraph as good/bad/short, then assembles
+4. Structural heuristics: Understands article/main/content patterns + non-semantic markup
+5. Comment filtering: Detects and removes user comments sections
+6. Boilerplate signatures: Recognizes common patterns across languages
+7. Metadata extraction: Date, author, title, sitename integrated into core algorithm
+
+### Head-to-Head Comparison
+
+| Aspect              | crawl.py                  | Trafilatura               |
+|---------------------|---------------------------|---------------------------|
+| Benchmark F1        | Unknown (not tested)      | 0.958                     |
+| Tag stripping       | Hardcoded list            | Adaptive scoring          |
+| Class filtering     | Regex patterns            | Signature detection       |
+| Text density        | chars / tags              | Character + paragraph     |
+| Link density        | link_chars / total_chars  | Similar, weighted         |
+| Fallbacks           | None                      | jusText → readability     |
+| Metadata            | Separate extraction       | Integrated                |
+| Edge cases          | Limited                   | Extensive                 |
+| Maintenance         | Us                        | Active community          |
+| Dependencies        | BeautifulSoup only        | lxml, urllib3, etc.       |
+
+### Where crawl.py Likely Fails
+
+- Sites without semantic tags (no <article>/<main>, noisy <div> scoring)
+- High-text boilerplate (sidebars with long text can outscore thin main content)
+- Comment sections (if inside <div> under article, gets included)
+- Related articles widgets ("You might also like" has good density)
+- Multi-column layouts (can pick sidebar instead of main column)
+
+### Where crawl.py Matches
+
+- Clean article sites with clear <article> tags
+- Simple corporate pages with low boilerplate
+- Server-rendered HTML without heavy JS framework cruft
+
+### Estimated Performance Gap
+
+| Site Type       | crawl.py (est.) | Trafilatura |
+|-----------------|-----------------|-------------|
+| News/articles   | ~90%            | ~96%        |
+| Corporate       | ~85%            | ~93%        |
+| Blogs           | ~80%            | ~95%        |
+| E-commerce      | ~70%            | ~88%        |
+| Complex SPAs    | ~60%            | ~85%        |
+| **Overall**     | **~80%**        | **~96%**    |
+
+The ~16% gap is significant for a 99% target.
+
+### Conclusion
+
+Keep density scorer as FINAL FALLBACK (simple, no deps, catches edge cases others
+miss), but use trafilatura as PRIMARY. The from-scratch approach is a reasonable
+baseline but trafilatura has years of refinement and active maintenance.
+
+The cascade (trafilatura → readability → density) maximizes coverage.
+
+
+EXTRACTOR DETAILS
+-----------------
+
+1. TRAFILATURA (primary)
+
+   Pros:
+   - Best benchmark scores (F1=0.958)
+   - Extracts metadata (date, author, title)
+   - Multiple fallback algorithms internally
+   - Actively maintained
+
+   Cons:
+   - Can be slow on large documents
+   - Sometimes too aggressive (removes valid content)
+
+   Usage:
+   ```python
+   import trafilatura
+
+   downloaded = trafilatura.fetch_url(url)  # or pass HTML directly
+   result = trafilatura.bare_extraction(
+       downloaded,
+       include_comments=False,
+       include_tables=True,
+       include_links=False,
+       with_metadata=True,
+       favor_recall=True,  # prefer more content over precision
+   )
+   ```
+
+2. READABILITY-LXML (fallback)
+
+   Pros:
+   - Different algorithm (catches trafilatura misses)
+   - Fast
+   - Battle-tested (port of Mozilla Readability)
+
+   Cons:
+   - No metadata extraction
+   - Older codebase
+
+   Usage:
+   ```python
+   from readability import Document
+
+   doc = Document(html)
+   title = doc.title()
+   content_html = doc.summary()
+   # Then strip HTML tags to get plain text
+   ```
+
+3. DENSITY SCORER (final fallback)
+
+   Our current approach from crawl.py. Reliable baseline, no dependencies
+   beyond BeautifulSoup.
+
+   ```python
+   score = text_density * (1 - link_density)
+   best_node = max(candidates, key=score)
+   ```
+
+
+ANTI-BOT CONSIDERATIONS
+-----------------------
+
+For sites with aggressive protection (Cloudflare, Akamai, etc.):
+
+1. User-Agent rotation
+   - Maintain pool of real browser UAs
+   - Rotate per request or per domain
+
+2. Request headers
+   - Accept, Accept-Language, Accept-Encoding
+   - Referer (set to Google or direct)
+   - DNT header
+
+3. Playwright stealth
+   - playwright-stealth patches detection vectors
+   - Masks webdriver property, plugins, languages
+
+4. Rate limiting
+   - Per-domain delays (already in crawl.py)
+   - Exponential backoff on 429/503
+
+5. What we WON'T do (ethical boundaries)
+   - No captcha solving services
+   - No residential proxy rotation
+   - No login credential stuffing
+   - Respect robots.txt for batch crawling
+
+
+TESTING PLAN
+------------
+
+1. Unit tests (test_extractor.py)
+   - Fixture HTML files with known content
+   - Assert extraction matches expected text
+   - Test each extractor independently
+
+2. Integration tests (test_fetcher.py)
+   - Mock HTTP responses
+   - Test fallback chain triggers correctly
+   - Test timeout handling
+
+3. Quality tests (test_quality.py)
+   - Test confidence scoring
+   - Test boilerplate detection
+   - Test degenerate extraction detection
+
+4. Benchmark (benchmark.py)
+   - Run against ScrapingHub article-extraction-benchmark dataset
+   - Measure F1, precision, recall
+   - Compare our pipeline vs trafilatura alone
+
+5. Regression corpus
+   - Save known-good extractions
+   - Re-run after changes, diff results
+   - Alert on quality regressions
+
+
+MIGRATION PATH
+--------------
+
+Phase 1: Build fetch/ module in cyberspace/pt1/crawling/
+- Implement fetcher.py, extractor.py, quality.py
+- Unit tests passing
+- Benchmark against current crawl.py extract_content()
+
+Phase 2: Integration with crawl.py
+- Import fetch_source into crawl.py
+- Run on existing seed list
+- Compare outputs (should be >= current quality)
+- Harden based on real-world failures
+
+Phase 3: Expose to oc (import or port)
+- Once fetch/ is stable, make available to projectA/oc
+- Option A: sys.path import from cyberspace
+- Option B: port/vendor fetch/ into oc/utils/
+- Decision based on deployment constraints
+
+Phase 4: Integration with sitrep
+- Create sitrep/sources.py that uses fetch_source
+- Source elements flow into claim extraction
+- Content hashes enable citation stability
+
+Phase 5: Integration with oc browser tool
+- Replace raw HTML return with fetch_source
+- Return clean text + metadata
+- Eliminates token blowups
+
+
+SUCCESS CRITERIA
+----------------
+
+Quantitative:
+- >= 99% fetch success rate (HTML retrieved)
+- >= 97% extraction success rate (meaningful content extracted)
+- >= 95% confidence=high rate on news/article URLs
+- Benchmark F1 >= 0.95 on standard test set
+
+Qualitative:
+- Single API for all use cases
+- Graceful degradation (always return something if possible)
+- Full provenance (know which method worked)
+- Re-extraction capability (raw HTML archived)
+
+
+OPEN QUESTIONS
+--------------
+
+1. Should we cache extracted content, or always re-extract from raw HTML?
+   - Caching: faster, but stale if algorithms improve
+   - Re-extract: slower, but always uses best available algorithm
+   - Proposal: cache with TTL, re-extract on access if stale
+
+2. How to handle PDFs?
+   - Many government/legal sources are PDF
+   - trafilatura doesn't handle PDF
+   - Options: pymupdf, pdfplumber, or external service
+   - Proposal: separate pdf_extract() function, same output schema
+
+3. How to handle non-English content?
+   - trafilatura supports multiple languages
+   - Quality thresholds may need tuning per language
+   - Proposal: detect language, adjust thresholds, flag if unsupported
+
+4. Rate limiting strategy for sitrep (real-time) vs crawling (batch)?
+   - Sitrep: single URL, no delay needed
+   - Crawling: per-domain delays, politeness
+   - Proposal: config flag, default to no delay for single-URL mode
+
+
+REFERENCES
+----------
+
+Papers:
+- "DOM-based Content Extraction via Text Density" (Sun et al., 2011)
+- "Content Extraction via Tag Ratios" (Weninger et al., 2010)
+- "Trafilatura: A Web Scraping Library" (Barbaresi, 2021) - ACL Anthology
+
+Benchmarks:
+- ScrapingHub article-extraction-benchmark (GitHub)
+- CleanEval benchmark
+
+Libraries:
+- https://github.com/adbar/trafilatura
+- https://github.com/buriy/python-readability
+- https://github.com/AtsushiSakai/playwright-stealth
+
+Internal:
+- cyberspace/pt1/crawling/bettercrawling.txt (research notes)
+- cyberspace/pt1/crawling/scripts/crawl.py (current implementation)
+- projectA/oc/docs/browsetoolie3.txt (browser tool issues)

@@ -1,0 +1,503 @@
+Implementation Plan: Full System Evaluation Harness (Div 4h)
+============================================================
+
+Goal
+----
+Create a comprehensive evaluation harness that walks through all system facets,
+soliciting user input, allowing skips, and generating structured reports for
+later review by humans or AI agents.
+
+This provides a repeatable way to validate the entire system after changes.
+
+TWO VERSIONS:
+- `eval_guided.py` — For-dummies version. Plain English, explains everything.
+- `eval_full_system.py` — Technical version. All 30 tests, raw output.
+
+
+Philosophy
+----------
+1. **Comprehensive** — Cover every major capability, not just happy paths
+2. **Interactive** — Human evaluator provides judgment on subjective quality
+3. **Skippable** — Long-running or manual tests can be deferred
+4. **Logged** — Every result persists for later analysis
+5. **Reviewable** — Reports are structured for AI agent analysis
+
+
+Deliverables (Div 4h)
+---------------------
+1) Test plan covering all 7 system facets
+2) Interactive evaluation harness script
+3) Structured JSON report format
+4) Report storage location with history
+5) Resume capability for interrupted sessions
+6) Integration with existing fixture tests
+
+
+===============================================================================
+PART 1: TEST PLAN
+===============================================================================
+
+The system has 7 major facets to evaluate:
+
+Facet 1: Basic Crawl
+--------------------
+Tests core crawling functionality without access layer complexity.
+
+| ID  | Test                    | Command                                      |
+|-----|-------------------------|----------------------------------------------|
+| 1.1 | HTTP Crawl (Simple)     | crawl.py --domain saia.com --depth 0 --no-js |
+| 1.2 | JS Crawl (SPA)          | crawl.py --domain schneider.com --js         |
+| 1.3 | Depth Control           | crawl.py --domain X --depth 1                |
+| 1.4 | Freshen Skip            | crawl twice with --freshen 1h                |
+| 1.5 | Tier Filtering          | crawl.py --tier 1 --limit 3                  |
+
+Success criteria:
+- HTTP crawl yields >500 words on simple sites
+- JS crawl yields >1000 words on SPA sites
+- Depth 1+ yields multiple pages
+- Freshen correctly skips recent crawls
+
+
+Facet 2: Recon & Strategy
+-------------------------
+Tests the adaptive access layer's detection and escalation.
+
+| ID  | Test                    | Command                                      |
+|-----|-------------------------|----------------------------------------------|
+| 2.1 | Recon Detection         | recon_site() on protected domain             |
+| 2.2 | Recon Cache             | Check recon_cache.json exists                |
+| 2.3 | Strategy Cache          | Check strategy_cache.json after crawl        |
+| 2.4 | Auto-Escalation         | Verify HTTP→JS escalation on block           |
+
+Success criteria:
+- Recon detects CDN/WAF (Cloudflare, StackPath, Akamai)
+- Cache persists between runs
+- Escalation happens automatically without manual flags
+
+
+Facet 3: Cookie & Auth
+----------------------
+Tests cookie persistence for protected sites.
+
+| ID  | Test                    | Command                                      |
+|-----|-------------------------|----------------------------------------------|
+| 3.1 | Cookie Inspect CLI      | cookie_inspect.py --list                     |
+| 3.2 | Cookie Bootstrap        | bootstrap_cookies.py --domain X (manual)     |
+| 3.3 | Cookie Expiry Check     | cookie_inspect.py --expiring 30              |
+
+Success criteria:
+- Cookie CLI shows stored cookies
+- Bootstrap opens browser for CAPTCHA
+- Expiry warnings appear for old cookies
+
+
+Facet 4: Monkey System
+----------------------
+Tests human-in-the-loop recording and replay.
+
+| ID  | Test                    | Command                                      |
+|-----|-------------------------|----------------------------------------------|
+| 4.1 | Queue List              | monkey.py --list                             |
+| 4.2 | Queue Add               | monkey.py --add test.com --reason 'test'     |
+| 4.3 | Queue Remove            | monkey.py --clear test.com                   |
+| 4.4 | Dashboard               | monkey_dashboard.py                          |
+| 4.5 | Flow Editor             | flow_editor.py --help                        |
+| 4.6 | Human Emulation Tests   | pytest test_human.py                         |
+| 4.7 | Monkey See (Manual)     | monkey.py --see domain                       |
+| 4.8 | Monkey Do (Replay)      | monkey.py --do domain                        |
+
+Success criteria:
+- Queue management works (add/remove/list)
+- Human emulation tests pass (6/6)
+- Flow recording captures actions
+- Replay works headlessly
+
+
+Facet 5: Extraction Quality
+---------------------------
+Tests content extraction accuracy.
+
+| ID  | Test                    | Command                                      |
+|-----|-------------------------|----------------------------------------------|
+| 5.1 | Content Extraction      | render_extraction.py (visual check)          |
+| 5.2 | Word Count Sanity       | Check output JSON for reasonable counts      |
+| 5.3 | Extraction Report       | render_extraction.py --list                  |
+
+Success criteria:
+- Main content extracted (not nav/footer)
+- Word counts are reasonable (>1000 for real sites)
+- Images and code blocks captured when present
+
+
+Facet 6: Analytics & Drift
+--------------------------
+Tests reporting and monitoring capabilities.
+
+| ID  | Test                    | Command                                      |
+|-----|-------------------------|----------------------------------------------|
+| 6.1 | Access Report           | access_report.py                             |
+| 6.2 | Access Report JSON      | access_report.py --json                      |
+| 6.3 | Drift Report            | access_drift_report.py                       |
+| 6.4 | Recon Fixtures          | test_recon_fixtures.py                       |
+| 6.5 | Access Fixtures         | test_access_fixtures.py                      |
+| 6.6 | Integration Tests       | pytest test_access_integration.py            |
+
+Success criteria:
+- Reports generate without error
+- SLO metrics computed correctly
+- All fixture tests pass
+- Integration tests: 34 pass, 8 skipped
+
+
+Facet 7: Operational
+--------------------
+Tests deployment and operational concerns.
+
+| ID  | Test                    | Command                                      |
+|-----|-------------------------|----------------------------------------------|
+| 7.1 | Parallel Crawl          | crawl.py -j 2                                |
+| 7.2 | Docker Build            | docker build -t crawl-test .                 |
+| 7.3 | Help Output             | crawl.py --help                              |
+| 7.4 | Error Handling          | crawl invalid domain                         |
+
+Success criteria:
+- Parallel execution works
+- Docker builds successfully
+- CLI help is comprehensive
+- Errors handled gracefully (no tracebacks)
+
+
+===============================================================================
+PART 2: EVALUATION HARNESS
+===============================================================================
+
+===============================================================================
+PART 2a: GUIDED EVALUATION (For Dummies)
+===============================================================================
+
+Script Location
+---------------
+scripts/eval_guided.py
+
+Philosophy
+----------
+A beginner shouldn't need to understand the codebase to evaluate it.
+Each test explains:
+- WHAT we're testing (in plain English)
+- WHY it matters (the business reason)
+- WHAT success looks like (concrete examples)
+- WHAT failure looks like (so you know if something's wrong)
+
+The script auto-interprets results where possible and asks simple yes/no
+questions instead of "evaluate this output."
+
+
+Usage
+-----
+```bash
+# Full guided evaluation (recommended for first-timers)
+python scripts/eval_guided.py
+
+# Quick mode - skip manual/slow tests
+python scripts/eval_guided.py --quick
+
+# Start at specific section
+python scripts/eval_guided.py --section 3
+```
+
+
+Sections
+--------
+1. Basic Crawling — Can it fetch websites at all?
+2. Recon — Does it detect CDN/WAF protection?
+3. Monkey System — Can it handle blocked sites?
+4. Analytics — Are the reports working?
+
+Each section:
+- Explains concepts before testing
+- Runs commands and interprets results
+- Shows green checkmarks for success, red X for failure
+- Asks if you want to continue
+
+
+Example Output
+--------------
+```
+============================================================
+  SECTION 1: Can It Crawl At All?
+============================================================
+
+This section tests the most basic functionality:
+Can the crawler visit a website and extract text from it?
+
+--------------------------------------------------
+  Test 1.1: Basic Web Crawl
+--------------------------------------------------
+
+WHAT WE'RE TESTING:
+  The crawler visits saia.com (a trucking company) and extracts text.
+  This site is simple - no JavaScript tricks, no bot protection.
+
+WHAT SUCCESS LOOKS LIKE:
+  - No error messages
+  - Reports extracting 500+ words
+  - Creates an output file
+
+Running: python scripts/crawl.py --domain saia.com --depth 0
+
+✓ Crawl successful! Extracted 12,450 words
+```
+
+
+===============================================================================
+PART 2b: TECHNICAL EVALUATION (Full Coverage)
+===============================================================================
+
+Script Location
+---------------
+scripts/eval_full_system.py
+
+Usage
+-----
+```bash
+# Full evaluation
+python scripts/eval_full_system.py
+
+# Start at specific facet
+python scripts/eval_full_system.py --facet 4
+
+# Resume interrupted session
+python scripts/eval_full_system.py --resume
+
+# View last report
+python scripts/eval_full_system.py --report-only
+
+# View specific report
+python scripts/eval_full_system.py --report corpus/eval_reports/full_system_eval_20260126.json
+```
+
+
+Interaction Flow
+----------------
+For each test:
+
+1. Display test header (ID, name, facet, description)
+2. Show command to run
+3. Prompt: [r]un, [s]kip, [q]uit
+4. If run:
+   a. Execute command
+   b. Display output
+   c. Run auto-check if available
+   d. Show what to verify
+   e. Prompt: [p]ass, [f]ail, [a]rtial, [e]rror
+   f. Prompt for score (1-5, optional)
+   g. Prompt for notes (optional)
+5. Save result and continue
+
+
+Skip Handling
+-------------
+Tests can be skipped with optional reason. Common skip reasons:
+- "Requires Docker"
+- "Requires manual browser interaction"
+- "Depends on previous test"
+- "Already verified in previous session"
+
+Skipped tests are logged with status "skip" for completeness.
+
+
+Auto-Checks
+-----------
+Some tests have automatic validation:
+- Check output file exists with minimum word count
+- Check pytest results for pass/fail
+- Check command output for success indicators
+
+Auto-checks supplement but don't replace human judgment.
+
+
+===============================================================================
+PART 3: REPORT FORMAT
+===============================================================================
+
+Location
+--------
+corpus/eval_reports/full_system_eval_{timestamp}.json
+
+Checkpoint (for resume):
+corpus/eval_reports/.eval_checkpoint.json
+
+
+Report Schema
+-------------
+```json
+{
+  "eval_id": "20260126_143052",
+  "started": "2026-01-26T14:30:52Z",
+  "completed": "2026-01-26T15:45:00Z",
+  "evaluator": "John Doe",
+  "results": [
+    {
+      "test_id": "1.1",
+      "facet": 1,
+      "name": "HTTP Crawl (Simple Site)",
+      "description": "Crawl a simple server-rendered site using HTTP only.",
+      "status": "pass",
+      "score": 4,
+      "notes": "Fast and clean extraction",
+      "command_run": "python scripts/crawl.py --domain saia.com --depth 0 --no-js",
+      "command_output": "...(truncated)...",
+      "duration_sec": 12.5,
+      "timestamp": "2026-01-26T14:31:05Z"
+    }
+  ],
+  "summary": {
+    "total_tests": 30,
+    "by_status": {"pass": 25, "fail": 2, "skip": 3},
+    "by_facet": {
+      "1": {"total": 5, "pass": 5, "fail": 0},
+      "2": {"total": 4, "pass": 3, "fail": 1}
+    },
+    "avg_score": 3.8,
+    "pass_rate": 0.833
+  }
+}
+```
+
+
+Result Status Values
+--------------------
+| Status  | Meaning                                      |
+|---------|----------------------------------------------|
+| pass    | Test passed all criteria                     |
+| fail    | Test failed one or more criteria             |
+| partial | Test partially passed (some issues noted)    |
+| skip    | Test was skipped by evaluator                |
+| error   | Test encountered an error during execution   |
+
+
+Score Scale
+-----------
+1 = Poor (barely functional)
+2 = Below expectations
+3 = Meets expectations
+4 = Above expectations
+5 = Excellent (exceeds all criteria)
+
+Scores are optional and used for subjective quality assessment.
+
+
+===============================================================================
+PART 4: AGENT REVIEW INTEGRATION
+===============================================================================
+
+Reports are structured for AI agent review. An agent can:
+
+1. Load the JSON report
+2. Analyze pass/fail patterns by facet
+3. Identify systematic issues (e.g., all facet 4 tests failing)
+4. Read evaluator notes for context
+5. Suggest targeted fixes
+6. Compare reports over time (regression detection)
+
+
+Agent Review Prompt Template
+----------------------------
+```
+Review this evaluation report:
+[paste JSON or path]
+
+Analyze:
+1. Overall pass rate and trends by facet
+2. Common failure patterns
+3. Evaluator notes indicating issues
+4. Recommendations for improvement
+5. Priority of fixes (by facet importance)
+```
+
+
+Recommended Review Cadence
+--------------------------
+- After major changes: Full evaluation
+- Weekly: Spot-check facets 1, 2, 6 (core + analytics)
+- Monthly: Full evaluation with fresh eyes
+- Before release: Full evaluation + agent review
+
+
+===============================================================================
+PART 5: IMPLEMENTATION
+===============================================================================
+
+Files
+-----
+New:
+- scripts/eval_full_system.py - Main evaluation harness
+
+Data:
+- corpus/eval_reports/ - Report storage directory
+- corpus/eval_reports/.eval_checkpoint.json - Resume state
+
+
+Dependencies
+------------
+- Python 3.10+
+- All existing project dependencies
+- No additional packages required
+
+
+Running Time
+------------
+Full evaluation: 30-60 minutes (depending on manual tests)
+Skip all manual tests: 15-20 minutes
+Facet-specific run: 5-10 minutes per facet
+
+
+===============================================================================
+PART 6: SUCCESS CRITERIA
+===============================================================================
+
+The evaluation harness is successful when:
+
+- [ ] All 7 facets have comprehensive test coverage
+- [ ] Harness runs without errors
+- [ ] Reports are generated in correct format
+- [ ] Resume functionality works
+- [ ] Reports are parseable by AI agents
+- [ ] At least one full evaluation completed and reviewed
+
+
+Target Scores (Baseline)
+------------------------
+After Div 4 completion, the system should achieve:
+
+| Facet | Target Pass Rate | Notes                          |
+|-------|------------------|--------------------------------|
+| 1     | 100%             | Core functionality             |
+| 2     | 90%+             | Recon may miss edge cases      |
+| 3     | 80%+             | Manual tests often skipped     |
+| 4     | 80%+             | Human emulation tests pass     |
+| 5     | 80%+             | Extraction varies by site      |
+| 6     | 100%             | Analytics should always work   |
+| 7     | 90%+             | Docker optional                |
+
+Overall target: 85%+ pass rate, 3.5+ average score
+
+
+===============================================================================
+APPENDIX: TEST DOMAIN SELECTION
+===============================================================================
+
+Tests use domains selected for specific characteristics:
+
+Easy (HTTP works):
+- saia.com - Server-rendered, no protection
+
+Medium (JS required):
+- schneider.com - Next.js SPA
+- jbhunt.com - AEM site
+
+Hard (Stealth/Monkey required):
+- knight-swift.com - StackPath sgcaptcha
+
+Using real domains ensures tests reflect actual production behavior.
+For offline testing, use the fixture datasets in eval/fixtures/.

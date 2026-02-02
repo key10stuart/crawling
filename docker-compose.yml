@@ -1,0 +1,26 @@
+version: "3.8"
+
+services:
+  crawl:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ./corpus:/app/corpus
+      - ./seeds:/app/seeds
+      - ./profiles:/app/profiles
+      - ./configs:/app/configs
+    working_dir: /app
+    command: ["--help"]
+
+  crawl-xvfb:
+    build:
+      context: .
+      dockerfile: Dockerfile.xvfb
+    volumes:
+      - ./corpus:/app/corpus
+      - ./seeds:/app/seeds
+      - ./profiles:/app/profiles
+      - ./configs:/app/configs
+    working_dir: /app
+    command: ["--help"]

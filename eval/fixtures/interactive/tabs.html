@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Tabs Test Fixture</title>
+    <style>
+        .tabs { display: flex; border-bottom: 2px solid #ccc; }
+        .tab { padding: 1rem 2rem; cursor: pointer; background: #f0f0f0; border: none; }
+        .tab[aria-selected="true"] { background: white; border-bottom: 2px solid white; margin-bottom: -2px; }
+        .tab-panel { display: none; padding: 1rem; }
+        .tab-panel.active { display: block; }
+    </style>
+</head>
+<body>
+    <h1>Our Services</h1>
+    <p>Explore our comprehensive transportation and logistics solutions.</p>
+
+    <!-- ARIA tabs -->
+    <div role="tablist" aria-label="Service categories">
+        <button role="tab" class="tab" aria-selected="true" aria-controls="truckload-panel" id="truckload-tab">
+            Truckload
+        </button>
+        <button role="tab" class="tab" aria-selected="false" aria-controls="ltl-panel" id="ltl-tab">
+            LTL Shipping
+        </button>
+        <button role="tab" class="tab" aria-selected="false" aria-controls="intermodal-panel" id="intermodal-tab">
+            Intermodal
+        </button>
+        <button role="tab" class="tab" aria-selected="false" aria-controls="logistics-panel" id="logistics-tab">
+            Logistics
+        </button>
+    </div>
+
+    <div id="truckload-panel" role="tabpanel" aria-labelledby="truckload-tab" class="tab-panel active">
+        <h2>Full Truckload Services</h2>
+        <p>
+            Our truckload division operates one of the largest fleets in North America with over
+            15,000 tractors and 60,000 trailers. We provide dedicated capacity for high-volume
+            shippers with consistent lane requirements.
+        </p>
+        <ul>
+            <li>Dry van capacity for general freight</li>
+            <li>Temperature-controlled trailers for perishables</li>
+            <li>Flatbed equipment for oversized loads</li>
+            <li>Expedited services for time-critical shipments</li>
+        </ul>
+    </div>
+
+    <div id="ltl-panel" role="tabpanel" aria-labelledby="ltl-tab" class="tab-panel">
+        <h2>Less-Than-Truckload Shipping</h2>
+        <p>
+            Our LTL network spans 48 states with next-day and two-day service lanes covering
+            90% of the US population. We offer guaranteed delivery windows and real-time tracking
+            for every shipment.
+        </p>
+        <ul>
+            <li>Standard LTL with 1-5 day transit</li>
+            <li>Guaranteed delivery by specific time</li>
+            <li>Liftgate and inside delivery options</li>
+            <li>Residential delivery services</li>
+            <li>Hazmat and specialty freight handling</li>
+        </ul>
+        <p>
+            Our proprietary routing algorithm optimizes every shipment for cost and speed,
+            reducing transit times by an average of 12% compared to industry standards.
+        </p>
+    </div>
+
+    <div id="intermodal-panel" role="tabpanel" aria-labelledby="intermodal-tab" class="tab-panel">
+        <h2>Intermodal Transportation</h2>
+        <p>
+            Combine the efficiency of rail with the flexibility of truck for long-haul shipments.
+            Our intermodal services reduce costs by up to 20% while lowering carbon emissions.
+        </p>
+        <ul>
+            <li>Coast-to-coast rail connections</li>
+            <li>Door-to-door container service</li>
+            <li>Domestic and international containers</li>
+            <li>Ramp-to-ramp and door-to-door options</li>
+        </ul>
+        <p>
+            We partner with all Class I railroads to provide seamless intermodal solutions.
+            Our network includes access to over 50 rail terminals across North America.
+        </p>
+    </div>
+
+    <div id="logistics-panel" role="tabpanel" aria-labelledby="logistics-tab" class="tab-panel">
+        <h2>Integrated Logistics Solutions</h2>
+        <p>
+            Beyond transportation, we offer end-to-end supply chain management including
+            warehousing, inventory management, and freight brokerage services.
+        </p>
+        <ul>
+            <li>3PL warehouse management</li>
+            <li>Freight brokerage with 80,000+ carriers</li>
+            <li>Supply chain consulting</li>
+            <li>Transportation management systems (TMS)</li>
+            <li>Cross-docking and transload services</li>
+        </ul>
+        <p>
+            Our logistics platform integrates with major ERP systems including SAP, Oracle,
+            and Microsoft Dynamics for seamless order management and visibility.
+        </p>
+    </div>
+
+    <script>
+        document.querySelectorAll('[role="tab"]').forEach(tab => {
+            tab.addEventListener('click', () => {
+                // Deselect all tabs
+                document.querySelectorAll('[role="tab"]').forEach(t => {
+                    t.setAttribute('aria-selected', 'false');
+                });
+                // Hide all panels
+                document.querySelectorAll('[role="tabpanel"]').forEach(p => {
+                    p.classList.remove('active');
+                });
+                // Select clicked tab
+                tab.setAttribute('aria-selected', 'true');
+                // Show corresponding panel
+                const panelId = tab.getAttribute('aria-controls');
+                document.getElementById(panelId).classList.add('active');
+            });
+        });
+    </script>
+</body>
+</html>

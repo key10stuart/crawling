@@ -1,0 +1,62 @@
+{
+  "description": "Access layer test fixtures for offline validation",
+  "fixtures": [
+    {
+      "id": "successful_http_crawl",
+      "name": "Successful HTTP Crawl",
+      "crawl_file": "successful_http_crawl.json",
+      "expected": {
+        "success": true,
+        "blocked": false,
+        "strategy": "http",
+        "pages_gt": 5,
+        "words_gt": 1000
+      }
+    },
+    {
+      "id": "successful_js_crawl",
+      "name": "Successful JS Crawl",
+      "crawl_file": "successful_js_crawl.json",
+      "expected": {
+        "success": true,
+        "blocked": false,
+        "strategy": "js",
+        "pages_gt": 3,
+        "words_gt": 500
+      }
+    },
+    {
+      "id": "blocked_cloudflare",
+      "name": "Blocked by Cloudflare",
+      "crawl_file": "blocked_cloudflare.json",
+      "expected": {
+        "success": false,
+        "blocked": true,
+        "strategy": "js",
+        "block_reason": "cloudflare_challenge"
+      }
+    },
+    {
+      "id": "low_content_crawl",
+      "name": "Low Content Crawl (Possible Block)",
+      "crawl_file": "low_content_crawl.json",
+      "expected": {
+        "success": false,
+        "blocked": false,
+        "strategy": "http",
+        "words_lt": 100
+      }
+    },
+    {
+      "id": "escalated_to_stealth",
+      "name": "Escalated to Stealth Mode",
+      "crawl_file": "escalated_to_stealth.json",
+      "expected": {
+        "success": true,
+        "blocked": false,
+        "strategy": "stealth",
+        "escalations": ["http->js", "js->stealth"]
+      }
+    }
+  ]
+}

@@ -1,0 +1,85 @@
+# Trucking Web Corpus - Development Notes
+
+## Test Crawls (2026-01-12)
+
+### jbhunt.com - FAILED (JS rendering)
+- **Result:** 100 pages crawled, but ~0 useful words extracted
+- **Issue:** Site is React/Next.js, static HTML fetch returns empty shell
+- **Fix needed:** Playwright for headless browser rendering
+- **Observations:**
+  - Crawler picked up PDFs in `/content/dam/` and parsed binary as text
+  - Fixed with content-type check and extension filtering
+  - Homepage has no server-rendered content whatsoever
+
+### odfl.com - SUCCESS (server-rendered)
+- **Result:** 62 pages, 97,143 words
+- **Rendering:** Traditional server-side HTML (likely AEM or similar CMS)
+- **Content quality:** Good - sections, headings, marketing copy all extracted
+- **Term counts (top 5):**
+  - ltl: 294
+  - truckload: 140
+  - global: 118
+  - api: 102
+  - technology: 98
+- **AI mentions:** 46
+- **Notes:**
+  - Privacy policy is 20K words of legal boilerplate - may want to filter/downweight
+  - Good H1 extraction: "Why Old Dominion? Our commitment to you."
+  - Section hierarchy preserved
+
+## Site Rendering Survey (TODO)
+
+Need to categorize carriers by rendering approach before bulk crawl:
+
+| Likely Server-Rendered | Likely JS/SPA |
+|------------------------|---------------|
+| odfl.com (confirmed)   | jbhunt.com (confirmed) |
+| estes-express.com      | schneider.com |
+| saia.com               | chrobinson.com |
+| averitt.com            | xpo.com |
+| sefl.com               | uberfreight.com |
+| dayton freight.com     | convoy.com |
+
+## Crawler Fixes Applied
+
+1. **Skip non-HTML resources** - filter by extension (.pdf, .jpg, etc.)
+2. **Check Content-Type header** - only process text/html responses
+3. **Rate limiting** - 1.5s delay between requests (polite crawling)
+
+## Next Steps
+
+1. **Option A:** Install Playwright for JS rendering
+   ```bash
+   pip install playwright
+   playwright install chromium
+   ```
+   Then add `--js` flag to crawler for headless browser mode
+
+2. **Option B:** Bulk crawl server-rendered sites first
+   - Get corpus started with traditional carriers
+   - Add JS support later for modern sites
+
+3. **Analysis improvements needed:**
+   - Filter out legal boilerplate (privacy policy, terms)
+   - Downweight repeated nav/footer text
+   - Add page-type-specific analysis (compare homepage messaging vs service pages)
+
+## Interesting Findings
+
+- **Tech stack as signal:** JS vs server-rendered might correlate with company modernization
+- **"AI" term frequency:** ODFL mentions AI 46 times - worth comparing across corpus
+- **Page type distribution:** ODFL has 19 service pages, 7 careers pages - heavy on service detail
+
+## File Locations
+
+- Seed list: `seeds/trucking_carriers.json` (40 carriers)
+- Site JSONs: `corpus/sites/{domain}.json`
+- Raw HTML: `corpus/raw/{domain}/`
+- Scripts: `scripts/crawl.py`, `scripts/analyze.py`
+
+## Additional Review Notes (Codex)
+
+- **Encoding risk:** `raw_file.write_text(html)` uses default encoding; non-ASCII pages can raise `UnicodeEncodeError` and abort a carrier crawl. Prefer explicit UTF-8 or bytes write.
+- **Duplicate text inflation:** `extract_content` collects text from container `div`/`span` alongside child `p`/`li`, which can duplicate content and inflate `word_count` and `term_counts`.
+- **Queue growth / query variants:** link discovery queues every URL and dedup ignores query strings, so query variants can bloat the queue before being skipped. Consider a queued set or early normalization.
+- **Parser dependency:** BeautifulSoup uses `lxml` explicitly; if not installed, crawl fails. Either ensure dependency or fall back to `html.parser`.

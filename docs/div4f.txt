@@ -1,0 +1,103 @@
+Implementation Plan: Dockerized Crawling (Div 4f)
+=================================================
+
+Goal
+----
+Provide a containerized crawler workflow for reproducible runs, CI, and
+scheduled execution. Default to headless mode, with an optional headed
+profile for debugging and cookie bootstrap.
+
+Core Intent Alignment
+---------------------
+Maintain reliable access while making runs portable and repeatable across
+machines and environments.
+
+Deliverables (Div 4f)
+---------------------
+1) Dockerfile using Playwright base image (headless default)
+2) docker-compose for local development and mounted outputs
+3) Optional headed profile (Xvfb + VNC) for manual debug
+4) Run scripts and documentation
+
+
+Phase 1 — Headless Docker Image
+-------------------------------
+**Owner: Agent 1**
+
+1) Add `Dockerfile`
+   - Base: `mcr.microsoft.com/playwright/python`
+   - Install Python deps
+   - Set entrypoint to `scripts/crawl.py`
+
+2) Add `.dockerignore`
+   - Exclude large corpora by default (optional toggle)
+
+Success criteria
+- `docker build` completes and can run a headless crawl.
+
+
+Phase 2 — docker-compose for Local Runs
+---------------------------------------
+**Owner: Agent 1**
+
+1) Add `docker-compose.yml`
+   - Mount `corpus/`, `seeds/`, `profiles/`, and `configs/`
+   - Pass crawl args via `command`
+
+2) Document example usage
+   - Headless run with `--js-auto`
+
+Success criteria
+- Local runs persist outputs to host `corpus/`.
+
+
+Phase 3 — Optional Headed Profile (Xvfb + VNC)
+----------------------------------------------
+**Owner: Agent 3**
+
+1) Add optional service or profile:
+   - `xvfb-run` for virtual display
+   - VNC server for manual interaction
+
+2) Document debug flow
+   - Connect VNC, run `--no-headless`
+   - Use for cookie bootstrap or manual investigation
+
+Success criteria
+- Headed sessions are possible when explicitly enabled.
+
+
+Phase 4 — Docs + Runbook
+------------------------
+**Owner: Agent 3**
+
+1) Add `docs/docker_crawling.md`
+   - How to build/run
+   - Volumes and data persistence
+   - Headless vs headed guidance
+
+2) Add quick examples
+
+Success criteria
+- Operators can run Docker crawls without reading code.
+
+
+Milestones
+----------
+M1: Dockerfile + .dockerignore
+M2: docker-compose + sample commands
+M3: Optional headed profile
+M4: Documentation
+
+
+Risk Notes
+----------
+- Headed mode in containers requires extra setup (Xvfb/VNC) and is not portable.
+- Container builds can be slow if browser dependencies change.
+
+
+Test Plan
+---------
+1) Build image and run one domain in headless mode
+2) Verify `corpus/` outputs persist on host
+3) (Optional) Run headed profile and confirm manual access

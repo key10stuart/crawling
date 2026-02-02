@@ -1,0 +1,500 @@
+Implementation Plan: Monkey System (Div 4e)
+===========================================
+
+Goal
+----
+When automation fails, don't give up — queue for minimal human assist.
+When human assists, record everything so we can replay next time.
+Flows go stale; when they do, re-queue automatically.
+
+**Principle: Always minimal manual, maximally automated.**
+
+Core Intent Alignment
+---------------------
+Maintain the 99% capture target even for hardened sites (StackPath, aggressive
+CAPTCHAs) by creating a human-in-the-loop fallback that learns from each
+manual session and reduces future human involvement.
+
+Deliverables (Div 4e)
+---------------------
+1) monkey_see: Human browses + record flow + capture content
+2) monkey_do: Unattended replay of saved flows
+3) Monkey queue: Track sites awaiting human attention
+4) Flow file format: Timing + positions for authentic replay
+5) Replay scheduling: Monthly/weekly cadence for flow refresh
+6) Perpetual manual detection: Flag sites that always need human
+7) CLI interface: Simple commands for queue management
+
+
+The Two Monkeys
+---------------
+
+| Function     | Mode       | Purpose                                    |
+|--------------|------------|-------------------------------------------|
+| `monkey_see` | Human      | Browse + record flow + capture content    |
+| `monkey_do`  | Unattended | Replay flow + capture content             |
+
+
+Escalation Flow
+---------------
+
+```
+                    +---------------------------+
+                    |      crawl runs           |
+                    +-----------+---------------+
+                                |
+                    +-----------v---------------+
+                    |  try auto (http/js/etc)   |
+                    +-----------+---------------+
+                                | fail
+                    +-----------v---------------+
+                    |  try monkey_do (replay)   |
+                    +-----------+---------------+
+                                | fail (flow stale/site changed)
+                    +-----------v---------------+
+                    |  add to monkey_queue      |
+                    +-----------+---------------+
+                                |
+         +----------------------+------------------------+
+         |                                               |
+         v                                               |
+   +-----------+                                         |
+   |  human    |                                         |
+   |  runs     |                                         |
+   |monkey_see |                                         |
+   +-----+-----+                                         |
+         |                                               |
+         +---> content captured NOW                      |
+         |                                               |
+         +---> fresh flow saved -------------------------+
+                    (monkey_do uses next crawl)
+```
+
+
+Phase 1 — monkey_see (Human-Assisted Capture)
+---------------------------------------------
+**Owner: Agent 2**
+
+Opens browser, human browses, records everything, extracts content.
+
+1) Create `fetch/monkey.py` with `monkey_see()` function
+   - Launch visible Playwright browser
+   - Navigate to domain homepage
+   - Inject click/scroll/navigate recorders via `expose_binding`
+   - Capture page content on each `load` event
+   - Wait for human to press Enter when done
+   - Save flow + captured content
+
+2) Flow recording captures:
+   - Click events: selector, x/y position, timestamp, delay since last
+   - Scroll events: direction, amount, timestamp
+   - Navigate events: URL, timestamp
+   - Meta: tagName, text, href for clicked elements
+
+3) Content capture on each page load:
+   - HTML snapshot
+   - Extracted content (via existing extraction pipeline)
+   - URL + timestamp
+
+Success criteria
+- Human can browse freely; all actions recorded
+- Content captured in real-time during session
+- Flow file saved to `~/.crawl/flows/{domain}.flow.json`
+
+
+Phase 2 — monkey_do (Unattended Replay with Human Emulation)
+------------------------------------------------------------
+**Owner: Agent 2**
+
+Replays a saved flow headlessly with human-like behavior to avoid detection.
+
+1) Add `monkey_do()` function to `fetch/monkey.py`
+   - Load flow file
+   - Load cookies if available
+   - Initialize HumanSession (consistent fingerprint)
+   - Replay each action with human emulation
+   - Capture content after each action
+   - Return success/failure with diagnostics
+
+2) Human emulation during replay:
+
+   a) Timing variance (don't replay with robotic precision)
+      ```python
+      def human_delay(base: float) -> float:
+          """Add natural variance to recorded delays."""
+          # 10% chance of "distraction" (longer pause)
+          if random.random() < 0.1:
+              return base + random.uniform(2.0, 5.0)
+          # Normal variance around recorded time
+          return base * random.uniform(0.8, 1.3) + random.gauss(0.2, 0.1)
+      ```
+
+   b) Mouse movement (curves, not teleportation)
+      ```python
+      def human_mouse_move(page, target_x, target_y):
+          """Move mouse with human-like curve."""
+          current = page.mouse.position
+          steps = random.randint(10, 25)
+          for i in range(steps):
+              t = i / steps
+              # Bezier curve with slight randomness
+              x = lerp(current['x'], target_x, ease_out_quad(t)) + random.gauss(0, 3)
+              y = lerp(current['y'], target_y, ease_out_quad(t)) + random.gauss(0, 3)
+              page.mouse.move(x, y)
+              time.sleep(random.uniform(0.01, 0.03))
+      ```
+
+   c) Click behavior (don't click dead center)
+      ```python
+      def human_click(page, x, y, box=None):
+          """Click with human-like targeting."""
+          # Add slight offset from recorded position
+          jitter_x = random.gauss(0, 3)
+          jitter_y = random.gauss(0, 3)
+          human_mouse_move(page, x + jitter_x, y + jitter_y)
+          time.sleep(random.uniform(0.05, 0.15))  # Hover before click
+          page.mouse.click(x + jitter_x, y + jitter_y)
+      ```
+
+   d) Scroll behavior (bursts, not smooth)
+      ```python
+      def human_scroll(page, amount, direction='down'):
+          """Scroll with human-like patterns."""
+          scrolled = 0
+          while scrolled < abs(amount):
+              chunk = random.randint(50, 150)
+              page.mouse.wheel(0, chunk if direction == 'down' else -chunk)
+              scrolled += chunk
+              # Reading pauses
+              if random.random() < 0.3:
+                  time.sleep(random.uniform(0.3, 1.0))
+              else:
+                  time.sleep(random.uniform(0.03, 0.1))
+      ```
+
+3) Session consistency (HumanSession class)
+   - Maintain consistent viewport, timezone, locale across replay
+   - Use same user_agent as recording if stored in flow
+   - Common viewports: 1920x1080, 1366x768, 1536x864, 1440x900
+
+4) Replay fidelity:
+   - Use recorded delays as base, add human variance
+   - Prefer x/y position clicks with jitter over exact positions
+   - Fall back to selector if position fails
+   - Detect stale flows (element not found, unexpected navigation)
+
+5) Failure handling:
+   - If replay fails mid-flow, return partial results
+   - Record failure point for diagnostics
+   - Trigger re-queue if flow is stale
+
+Success criteria
+- Saved flows replay without human intervention
+- Replay behavior is indistinguishable from human (timing, movement)
+- Stale flows detected and flagged for re-recording
+
+
+Phase 3 — Monkey Queue
+----------------------
+**Owner: Agent 2**
+
+Sites awaiting human attention.
+
+1) Create queue file: `~/.crawl/monkey_queue.json`
+   ```json
+   {
+     "queue": [
+       {
+         "domain": "knight-swift.com",
+         "added": "2026-01-26T14:00:00Z",
+         "reason": "sgcaptcha - monkey_do failed",
+         "attempts_auto": ["http", "js", "stealth"],
+         "attempts_monkey_do": 2,
+         "priority": "high",
+         "tier": 1,
+         "last_flow_date": "2026-01-20T00:00:00Z"
+       }
+     ],
+     "completed": [
+       {
+         "domain": "knight-swift.com",
+         "completed": "2026-01-26T15:30:00Z",
+         "pages": 23,
+         "words": 8200
+       }
+     ]
+   }
+   ```
+
+2) Queue management functions:
+   - `add_to_monkey_queue(domain, reason, tier)`
+   - `remove_from_queue(domain, pages, words)`
+   - `get_next_queued()` - returns highest priority item
+   - `list_queue()` - formatted display
+
+3) Priority rules:
+   - Tier 1 sites = high priority
+   - Older queue entries bubble up
+   - Recent failures deprioritized briefly
+
+Success criteria
+- Queue persists across runs
+- Priority ordering reflects business value
+
+
+Phase 4 — Flow File Format
+--------------------------
+**Owner: Agent 2**
+
+Complete flow with timing + positions for authentic replay.
+
+```json
+{
+  "domain": "knight-swift.com",
+  "recorded": "2026-01-26T15:30:00Z",
+  "total_duration_sec": 45.2,
+  "viewport": {"width": 1920, "height": 1080},
+  "user_agent": "Mozilla/5.0 ...",
+  "actions": [
+    {
+      "action": "navigate",
+      "url": "https://www.knight-swift.com/",
+      "timestamp": 1706282400.0,
+      "delay_since_last": 0
+    },
+    {
+      "action": "scroll",
+      "direction": "down",
+      "amount": 350,
+      "timestamp": 1706282402.5,
+      "delay_since_last": 2.5
+    },
+    {
+      "action": "click",
+      "selector": "nav > ul > li:nth-child(3) > a",
+      "x": 542,
+      "y": 85,
+      "timestamp": 1706282405.1,
+      "delay_since_last": 2.6,
+      "meta": {
+        "tagName": "A",
+        "text": "About Us",
+        "href": "/about"
+      }
+    },
+    {
+      "action": "navigate",
+      "url": "https://www.knight-swift.com/about",
+      "timestamp": 1706282406.0,
+      "delay_since_last": 0.9
+    }
+  ]
+}
+```
+
+Success criteria
+- Flow files are human-readable and editable
+- Sufficient detail for authentic replay
+
+
+Phase 5 — Replay Scheduling
+---------------------------
+**Owner: Agent 2**
+
+For sites that need regular re-scraping with saved flows.
+
+1) Create schedule file: `~/.crawl/replay_schedule.yaml`
+   ```yaml
+   schedules:
+     - domain: knight-swift.com
+       cadence: monthly
+       last_success: 2026-01-26
+       last_attempt: 2026-01-26
+       consecutive_failures: 0
+
+     - domain: stubborn-site.com
+       cadence: weekly
+       last_success: 2026-01-20
+       last_attempt: 2026-01-25
+       consecutive_failures: 1
+   ```
+
+2) Add `check_replay_schedule()` function
+   - Check each scheduled domain against cadence
+   - Run monkey_do for due domains
+   - Update last_attempt, last_success, consecutive_failures
+   - Re-queue after 2 consecutive failures
+
+3) Cadence options: daily, weekly, monthly, quarterly
+
+Success criteria
+- Scheduled replays run unattended
+- Stale flows auto-requeue for human refresh
+
+
+Phase 6 — Perpetual Manual Detection
+------------------------------------
+**Owner: Agent 2**
+
+Some sites may never work with automation. Flag them.
+
+1) Add `check_perpetual_manual(domain)` function
+   - Count queue appearances in last 90 days
+   - If queued 3+ times, mark as perpetual manual
+
+2) Perpetual manual behavior:
+   - Skip auto methods entirely
+   - Go straight to queue on each crawl
+   - Log clearly: "[perpetual] {domain} requires human every crawl"
+
+3) Store flag in strategy cache or playbook
+
+Success criteria
+- Sites that always fail automation are handled efficiently
+- No wasted retries on known-impossible sites
+
+
+Phase 7 — CLI Interface
+-----------------------
+**Owner: Agent 2**
+
+Create `scripts/monkey.py` with simple commands.
+
+```bash
+# Check queue
+python scripts/monkey.py --list
+# Output:
+# Monkey Queue (2 sites):
+#    1. knight-swift.com [HIGH] - sgcaptcha (queued 2h ago)
+#    2. another-site.com [NORMAL] - monkey_do failed (queued 1d ago)
+
+# Process next in queue
+python scripts/monkey.py --next
+# Output:
+# Opening knight-swift.com...
+# Browse around. Press ENTER when done.
+# Captured: / (770 words)
+# Captured: /about (540 words)
+# ...
+# Done: 23 pages, 8.2K words
+# Flow saved. Removed from queue.
+
+# Process specific domain
+python scripts/monkey.py --see knight-swift.com
+
+# Replay without human (test if flow still works)
+python scripts/monkey.py --do knight-swift.com
+
+# Run scheduled replays (for cron)
+python scripts/monkey.py --schedule
+
+# Clear queue
+python scripts/monkey.py --clear
+```
+
+Success criteria
+- Single command to process queue
+- Clear feedback during session
+- Suitable for cron (--schedule)
+
+
+Phase 8 — Crawl Loop Integration
+--------------------------------
+**Owner: Agent 1**
+
+Wire monkey system into main crawl escalation.
+
+```python
+def crawl_site(carrier, ...):
+    domain = carrier['domain']
+    tier = carrier.get('tier')
+
+    # Check if perpetual manual
+    if check_perpetual_manual(domain):
+        log(f"[perpetual] {domain} requires human every crawl")
+        add_to_monkey_queue(domain, reason='perpetual manual site')
+        return None
+
+    # Level 0-1: Auto methods
+    result = try_auto_methods(domain, config)
+    if result and result.success:
+        return result
+
+    # Level 2: Try monkey_do (replay saved flow)
+    flow_file = FLOWS_DIR / f"{domain}.flow.json"
+    if flow_file.exists():
+        log(f"[monkey_do] Attempting replay for {domain}")
+        result = asyncio.run(monkey_do(domain, flow_file))
+        if result['success']:
+            log(f"[monkey_do] Success: {result['pages']} pages")
+            return result
+        else:
+            log(f"[monkey_do] Failed: {result.get('error')}")
+
+    # Level 3: Add to queue for human
+    reason = result.get('error', 'all methods failed') if result else 'all methods failed'
+    add_to_monkey_queue(domain, reason=reason, tier=tier)
+    log(f"[queue] {domain} added to monkey_queue ({reason})")
+
+    return None
+```
+
+Success criteria
+- Escalation is automatic and seamless
+- No code changes needed to add sites to monkey workflow
+
+
+Milestones
+----------
+M1: monkey_see function + flow recording
+M2: monkey_do function + replay logic
+M3: Queue management + CLI --list/--next
+M4: Flow file format finalized
+M5: Replay scheduling
+M6: Perpetual manual detection
+M7: Crawl loop integration
+M8: CLI complete (--see/--do/--schedule/--clear)
+
+
+Files
+-----
+New:
+- `fetch/monkey.py` - Core monkey_see and monkey_do functions
+- `fetch/human.py` - Human emulation utilities (HumanSession, mouse/scroll/click)
+- `scripts/monkey.py` - CLI interface
+
+Data files:
+- `~/.crawl/flows/{domain}.flow.json` - Recorded flows
+- `~/.crawl/monkey_queue.json` - Queue state
+- `~/.crawl/replay_schedule.yaml` - Scheduled replays
+
+
+Risk Notes
+----------
+- Flow recording JS injection may conflict with some site scripts
+- Position-based clicks may fail on responsive sites (viewport changes)
+- Queue could grow unbounded if human doesn't process regularly
+- Replay timing variance may trigger bot detection on some sites
+
+
+Test Plan
+---------
+1) Unit tests for flow file parsing and validation
+2) Unit tests for queue management (add/remove/priority)
+3) Integration: Record flow on test site, replay, verify content match
+4) Integration: Verify crawl loop escalation triggers queue add
+5) Manual test: Full monkey_see session on Knight-Swift
+
+
+Success Criteria (Overall)
+--------------------------
+- [ ] monkey_see records flow + captures content in one session
+- [ ] monkey_do replays saved flows unattended
+- [ ] Monkey queue tracks sites awaiting human attention
+- [ ] Failed sites auto-queue (escalation works)
+- [ ] Stale flows trigger re-queue automatically
+- [ ] Replay scheduling works (monthly/weekly cadence)
+- [ ] Perpetual manual sites flagged after 3+ queue appearances
+- [ ] Flow files include timing + positions for authentic replay
+- [ ] Knight-Swift successfully crawled via monkey_see
+- [ ] Knight-Swift replayed via monkey_do on subsequent runs

@@ -1,0 +1,58 @@
+{
+  "domain": "saia.com",
+  "url": "https://www.saia.com",
+  "crawl_start": "2024-01-15T10:00:00Z",
+  "crawl_end": "2024-01-15T10:05:00Z",
+  "snapshot_date": "2024-01-15",
+  "total_word_count": 15420,
+  "access": {
+    "strategy": "http",
+    "blocked": false,
+    "escalations": [],
+    "recon": {
+      "cdn": null,
+      "waf": null,
+      "challenge_detected": false,
+      "js_required": false
+    },
+    "notes": "Server-rendered site, HTTP sufficient"
+  },
+  "pages": [
+    {
+      "url": "https://www.saia.com/",
+      "title": "Saia LTL Freight | Less-Than-Truckload Shipping",
+      "word_count": 1250,
+      "fetch_method": "requests"
+    },
+    {
+      "url": "https://www.saia.com/about",
+      "title": "About Saia",
+      "word_count": 2100,
+      "fetch_method": "requests"
+    },
+    {
+      "url": "https://www.saia.com/services",
+      "title": "Our Services",
+      "word_count": 3200,
+      "fetch_method": "requests"
+    },
+    {
+      "url": "https://www.saia.com/careers",
+      "title": "Careers at Saia",
+      "word_count": 4500,
+      "fetch_method": "requests"
+    },
+    {
+      "url": "https://www.saia.com/locations",
+      "title": "Locations",
+      "word_count": 1870,
+      "fetch_method": "requests"
+    },
+    {
+      "url": "https://www.saia.com/contact",
+      "title": "Contact Us",
+      "word_count": 2500,
+      "fetch_method": "requests"
+    }
+  ]
+}

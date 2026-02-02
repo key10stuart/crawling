@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="description" content="Leading transportation and logistics provider offering truckload, LTL, intermodal, and supply chain solutions.">
+    <title>Acme Trucking - Transportation & Logistics Solutions</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 0; }
+        header { background: #1a1a2e; color: white; padding: 1rem; }
+        nav { display: flex; gap: 2rem; }
+        nav a { color: white; text-decoration: none; }
+        main { padding: 2rem; max-width: 1200px; margin: 0 auto; }
+        .hero { text-align: center; padding: 3rem; background: #f5f5f5; }
+        section { margin: 3rem 0; }
+
+        /* Tabs */
+        .service-tabs { display: flex; border-bottom: 2px solid #ccc; }
+        .service-tab { padding: 1rem 2rem; cursor: pointer; background: #f0f0f0; border: none; }
+        .service-tab[aria-selected="true"] { background: white; border-bottom: 2px solid white; margin-bottom: -2px; font-weight: bold; }
+        .service-panel { display: none; padding: 1.5rem; }
+        .service-panel.active { display: block; }
+
+        /* Accordion */
+        .faq-item { border: 1px solid #ddd; margin-bottom: 0.5rem; }
+        .faq-question { width: 100%; text-align: left; padding: 1rem; cursor: pointer; background: #fafafa; border: none; font-size: 1rem; }
+        .faq-answer { display: none; padding: 1rem; background: white; }
+        .faq-answer.active { display: block; }
+
+        /* Carousel */
+        .testimonial-carousel { background: #f0f4f8; padding: 2rem; position: relative; }
+        .testimonial-slide { display: none; }
+        .testimonial-slide.active { display: block; }
+        .carousel-nav { display: flex; justify-content: center; gap: 1rem; margin-top: 1rem; }
+        .carousel-nav button { padding: 0.5rem 1rem; cursor: pointer; }
+
+        /* Load more */
+        .news-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem; }
+        .news-card { border: 1px solid #ddd; padding: 1rem; }
+        .news-card.hidden { display: none; }
+        .show-more { display: block; margin: 1rem auto; padding: 0.75rem 2rem; cursor: pointer; }
+
+        footer { background: #1a1a2e; color: white; padding: 2rem; margin-top: 3rem; }
+    </style>
+</head>
+<body>
+    <header>
+        <nav>
+            <a href="/">Home</a>
+            <a href="/services">Services</a>
+            <a href="/about">About</a>
+            <a href="/careers">Careers</a>
+            <a href="/contact">Contact</a>
+        </nav>
+    </header>
+
+    <main>
+        <section class="hero">
+            <h1>Moving America Forward</h1>
+            <p>Reliable transportation and logistics solutions for businesses of all sizes.</p>
+            <p>Over 50 years of experience. 15,000+ trucks. Nationwide coverage.</p>
+        </section>
+
+        <!-- TABS: Service overview -->
+        <section>
+            <h2>Our Services</h2>
+            <div role="tablist" class="service-tabs" aria-label="Service categories">
+                <button role="tab" class="service-tab" aria-selected="true" aria-controls="svc-truckload">Truckload</button>
+                <button role="tab" class="service-tab" aria-selected="false" aria-controls="svc-ltl">LTL</button>
+                <button role="tab" class="service-tab" aria-selected="false" aria-controls="svc-intermodal">Intermodal</button>
+                <button role="tab" class="service-tab" aria-selected="false" aria-controls="svc-dedicated">Dedicated</button>
+            </div>
+
+            <div id="svc-truckload" role="tabpanel" class="service-panel active">
+                <h3>Full Truckload Services</h3>
+                <p>Our truckload division provides reliable capacity with one of the largest and most modern fleets in North America. We offer dry van, refrigerated, and flatbed equipment to meet your shipping needs.</p>
+                <ul>
+                    <li>Over-the-road long haul</li>
+                    <li>Regional and local delivery</li>
+                    <li>Team driver service for expedited freight</li>
+                </ul>
+            </div>
+
+            <div id="svc-ltl" role="tabpanel" class="service-panel">
+                <h3>Less-Than-Truckload Shipping</h3>
+                <p>Cost-effective shipping for smaller freight. Our LTL network covers all 48 states with competitive transit times and guaranteed delivery options.</p>
+                <ul>
+                    <li>Next-day and two-day service</li>
+                    <li>Guaranteed and time-definite delivery</li>
+                    <li>Liftgate and white glove services</li>
+                    <li>Hazmat certified</li>
+                </ul>
+            </div>
+
+            <div id="svc-intermodal" role="tabpanel" class="service-panel">
+                <h3>Intermodal Transportation</h3>
+                <p>Combine rail and truck for the best of both worlds. Intermodal offers cost savings of 10-20% on long-haul lanes while reducing your carbon footprint.</p>
+                <ul>
+                    <li>Coast-to-coast service</li>
+                    <li>Door-to-door container delivery</li>
+                    <li>Partnerships with all Class I railroads</li>
+                    <li>Real-time tracking and visibility</li>
+                </ul>
+            </div>
+
+            <div id="svc-dedicated" role="tabpanel" class="service-panel">
+                <h3>Dedicated Fleet Solutions</h3>
+                <p>Your freight, your drivers, your schedule. Dedicated services provide consistent capacity with drivers who know your business.</p>
+                <ul>
+                    <li>Private fleet alternative</li>
+                    <li>Customized equipment and branding</li>
+                    <li>Dedicated account management</li>
+                    <li>Performance guarantees</li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- CAROUSEL: Testimonials -->
+        <section>
+            <h2>What Our Customers Say</h2>
+            <div class="testimonial-carousel">
+                <div class="testimonial-slide active">
+                    <blockquote>"Acme Trucking has been our primary carrier for 10 years. Their reliability and service are unmatched in the industry."</blockquote>
+                    <p><strong>— VP of Supply Chain, Major Retailer</strong></p>
+                </div>
+                <div class="testimonial-slide">
+                    <blockquote>"The visibility platform changed how we manage logistics. We can see every shipment in real-time and proactively address issues."</blockquote>
+                    <p><strong>— Logistics Director, Food Manufacturer</strong></p>
+                </div>
+                <div class="testimonial-slide">
+                    <blockquote>"Their dedicated fleet eliminated our capacity concerns during peak season. We've grown 40% and never missed a delivery."</blockquote>
+                    <p><strong>— COO, E-commerce Company</strong></p>
+                </div>
+                <div class="carousel-nav">
+                    <button class="carousel-prev" aria-label="Previous testimonial">Previous</button>
+                    <button class="carousel-next" aria-label="Next testimonial">Next</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- ACCORDION: FAQ -->
+        <section>
+            <h2>Frequently Asked Questions</h2>
+            <div class="faq-list">
+                <div class="faq-item">
+                    <button class="faq-question" aria-expanded="false" aria-controls="faq1">How do I get a shipping quote?</button>
+                    <div id="faq1" class="faq-answer">
+                        <p>You can request a quote through our online portal, by calling 1-800-ACME-TRK, or by contacting your local terminal. For truckload shipments, quotes are typically provided within 2 hours. LTL quotes are instant through our online rating tool.</p>
+                    </div>
+                </div>
+                <div class="faq-item">
+                    <button class="faq-question" aria-expanded="false" aria-controls="faq2">What tracking options are available?</button>
+                    <div id="faq2" class="faq-answer">
+                        <p>All shipments include real-time GPS tracking through our customer portal and mobile app. You can track by PRO number, BOL, or PO number. API integrations are available for enterprise customers. Email and SMS notifications can be configured for key milestones.</p>
+                    </div>
+                </div>
+                <div class="faq-item">
+                    <button class="faq-question" aria-expanded="false" aria-controls="faq3">Do you offer temperature-controlled shipping?</button>
+                    <div id="faq3" class="faq-answer">
+                        <p>Yes, we operate a large fleet of refrigerated trailers for temperature-sensitive freight. Our reefer units can maintain temperatures from -20°F to 70°F with continuous monitoring and data logging. We are certified for food, pharmaceutical, and chemical shipments.</p>
+                    </div>
+                </div>
+                <div class="faq-item">
+                    <button class="faq-question" aria-expanded="false" aria-controls="faq4">What are your sustainability initiatives?</button>
+                    <div id="faq4" class="faq-answer">
+                        <p>We are committed to reducing our environmental impact through fleet modernization, alternative fuels, and operational efficiency. Our initiatives include SmartWay partnership, electric vehicle pilots, idle reduction technology, and a goal of 50% emissions reduction by 2030. We offer carbon footprint reporting for all shipments.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- LOAD MORE: News -->
+        <section>
+            <h2>Latest News</h2>
+            <div class="news-grid">
+                <div class="news-card">
+                    <h3>Q4 2025 Results Announced</h3>
+                    <p>Record revenue of $12.4 billion driven by strong demand across all service lines.</p>
+                </div>
+                <div class="news-card">
+                    <h3>New Phoenix Distribution Center</h3>
+                    <p>500,000 sq ft facility opens with state-of-the-art automation and solar power.</p>
+                </div>
+                <div class="news-card">
+                    <h3>Electric Fleet Expansion</h3>
+                    <p>2,000 electric trucks ordered for last-mile delivery in major metros.</p>
+                </div>
+                <div class="news-card hidden" data-more="1">
+                    <h3>AI Route Optimization Launch</h3>
+                    <p>Machine learning platform reduces fuel costs by 8% and empty miles by 12%.</p>
+                </div>
+                <div class="news-card hidden" data-more="1">
+                    <h3>Driver Safety Milestone</h3>
+                    <p>Fleet achieves 10 million miles without a preventable accident.</p>
+                </div>
+                <div class="news-card hidden" data-more="1">
+                    <h3>Mexico Expansion Complete</h3>
+                    <p>New cross-border lanes connect manufacturing centers to US distribution.</p>
+                </div>
+            </div>
+            <button class="show-more" id="showMoreNews">Show More News</button>
+        </section>
+    </main>
+
+    <footer>
+        <p>Acme Trucking Company | 1-800-ACME-TRK | info@acmetrucking.example.com</p>
+        <p>Headquarters: Chicago, IL | Terminals in 48 states</p>
+    </footer>
+
+    <script>
+        // Tab functionality
+        document.querySelectorAll('.service-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.service-tab').forEach(t => t.setAttribute('aria-selected', 'false'));
+                document.querySelectorAll('.service-panel').forEach(p => p.classList.remove('active'));
+                tab.setAttribute('aria-selected', 'true');
+                document.getElementById(tab.getAttribute('aria-controls')).classList.add('active');
+            });
+        });
+
+        // FAQ accordion
+        document.querySelectorAll('.faq-question').forEach(q => {
+            q.addEventListener('click', () => {
+                const expanded = q.getAttribute('aria-expanded') === 'true';
+                q.setAttribute('aria-expanded', !expanded);
+                document.getElementById(q.getAttribute('aria-controls')).classList.toggle('active');
+            });
+        });
+
+        // Testimonial carousel
+        const slides = document.querySelectorAll('.testimonial-slide');
+        let currentSlide = 0;
+        function showSlide(i) {
+            slides.forEach(s => s.classList.remove('active'));
+            slides[i].classList.add('active');
+            currentSlide = i;
+        }
+        document.querySelector('.carousel-next').addEventListener('click', () => {
+            showSlide((currentSlide + 1) % slides.length);
+        });
+        document.querySelector('.carousel-prev').addEventListener('click', () => {
+            showSlide((currentSlide - 1 + slides.length) % slides.length);
+        });
+
+        // Load more news
+        document.getElementById('showMoreNews').addEventListener('click', function() {
+            document.querySelectorAll('[data-more="1"]').forEach(card => card.classList.remove('hidden'));
+            this.style.display = 'none';
+        });
+    </script>
+</body>
+</html>

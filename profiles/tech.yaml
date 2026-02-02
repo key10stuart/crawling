@@ -1,0 +1,104 @@
+# Tech/Developer Company Crawl Profile
+# Used for: Hardware vendors, SaaS, developer platforms
+name: tech
+
+# Path priority scoring (regex patterns)
+priority:
+  high:
+    - /product
+    - /solution
+    - /platform
+    - /docs
+    - /documentation
+    - /api
+    - /sdk
+    - /developer
+    - /reference
+    - /quickstart
+    - /getting-started
+    - /pricing
+    - /features
+    - /specifications
+    - /datasheet
+  medium:
+    - /blog
+    - /resource
+    - /case-study
+    - /customer
+    - /support
+    - /download
+    - /tutorial
+    - /guide
+    - /about
+    - /company
+  low:
+    - /privacy
+    - /terms
+    - /legal
+    - /cookie
+    - /accessibility
+    - /sitemap
+    - /careers
+    - /job
+    - /investor
+    - /press-release
+
+# Nav labels that indicate key sections
+expected_nav_sections:
+  - products
+  - solutions
+  - developers
+  - docs
+  - documentation
+  - resources
+  - pricing
+  - support
+  - company
+
+# Products of interest (for product-focused crawling)
+# Crawler will track which products are covered and prioritize their pages
+products:
+  # Example for NVIDIA-like company:
+  # - name: "GeForce RTX"
+  #   patterns: [/geforce, /rtx, /gaming]
+  #   terms: [geforce, rtx, gaming, gpu]
+  # - name: "CUDA"
+  #   patterns: [/cuda, /developer/cuda]
+  #   terms: [cuda, parallel, compute]
+  # - name: "Omniverse"
+  #   patterns: [/omniverse]
+  #   terms: [omniverse, simulation, digital twin]
+  []
+
+# Features to flag when detected
+features_of_interest:
+  - API
+  - SDK
+  - developer_portal
+  - documentation
+  - pricing
+  - free_trial
+  - demo
+  - login
+
+# Tech terms to track
+industry_terms:
+  - api
+  - sdk
+  - developer
+  - documentation
+  - integration
+  - platform
+  - cloud
+  - enterprise
+  - pricing
+  - free tier
+  - open source
+
+# Crawl behavior
+settings:
+  max_depth: 3          # Deeper for docs sites
+  max_pages: 150        # More pages for product coverage
+  prioritize_nav: true
+  skip_external: true
+  follow_docs_links: true  # Follow links within /docs/ even at max depth

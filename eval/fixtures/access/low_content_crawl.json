@@ -1,0 +1,28 @@
+{
+  "domain": "sparse-site.com",
+  "url": "https://www.sparse-site.com",
+  "crawl_start": "2024-01-15T13:00:00Z",
+  "crawl_end": "2024-01-15T13:01:00Z",
+  "snapshot_date": "2024-01-15",
+  "total_word_count": 78,
+  "access": {
+    "strategy": "http",
+    "blocked": false,
+    "escalations": [],
+    "recon": {
+      "cdn": null,
+      "waf": null,
+      "challenge_detected": false,
+      "js_required": false
+    },
+    "notes": "Very low content - may be SPA without JS or stub site"
+  },
+  "pages": [
+    {
+      "url": "https://www.sparse-site.com/",
+      "title": "Welcome",
+      "word_count": 78,
+      "fetch_method": "requests"
+    }
+  ]
+}

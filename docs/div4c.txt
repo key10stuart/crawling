@@ -1,0 +1,122 @@
+Implementation Plan: Adaptive Access Layer (Div 4c)
+===================================================
+
+Goal
+----
+Close Div 4 by adding self-learning, multi-run optimization, and safety guards
+that keep access stable over time. Div 4c focuses on automatic improvement
+loops and governance for long-running crawls.
+
+Core Intent Alignment
+---------------------
+Maintain the 99% capture target with stable behavior across time, and ensure
+access decisions are explainable and reversible.
+
+Deliverables (Div 4c)
+---------------------
+1) Learning loop: strategy scoring + automatic promotion/demotion
+2) Cross-run stability checks (drift detection)
+3) Safety policies for high-risk domains
+4) Access QA dataset + replay harness
+5) Documentation + handoff
+
+
+Phase 1 — Strategy Scoring + Learning Loop
+------------------------------------------
+**Owner: Agent 1**
+
+1) Add per-domain strategy scores
+   - Score = success_rate * coverage_gain / cost
+   - Record per method (requests/js/stealth/visible)
+
+2) Auto-promotion
+   - If a method consistently wins for a domain, default to it.
+
+3) Auto-demotion
+   - If block rate spikes, step down or mark manual_only.
+
+Success criteria
+- Strategy cache improves across runs without manual edits.
+
+
+Phase 2 — Drift Detection
+-------------------------
+**Owner: Agent 3**
+
+1) Track content deltas at site level
+   - Use content_hash + word_count delta
+   - Alert if drop exceeds threshold (e.g., -60%)
+
+2) Track access drift
+   - If method changed and quality dropped, flag in output.
+
+3) Add `scripts/access_drift_report.py`
+   - Compare last N runs for each domain
+
+Success criteria
+- Detects when a previously working method starts failing.
+
+
+Phase 3 — Safety Policies (High-Risk Domains)
+---------------------------------------------
+**Owner: Agent 1**
+
+1) Add allow/deny lists
+   - `profiles/access_policies.yaml`
+   - Domains tagged as "high risk" require manual_only.
+
+2) Add rate caps for protected domains
+   - `max_pages_per_domain`, `max_actions_per_page`
+
+Success criteria
+- Protected domains are not hammered and failures are explicit.
+
+
+Phase 4 — Access QA Dataset + Replay Harness
+--------------------------------------------
+**Owner: Agent 3**
+
+1) Create `eval/fixtures/access/`
+   - HTML snapshots + expected block signals
+
+2) Add replay harness
+   - Run recon + strategy selection on stored HTML
+   - Validate classification without live requests
+
+Success criteria
+- Access logic can be tested offline and is reproducible.
+
+
+Phase 5 — Documentation + Handoff
+---------------------------------
+**Owner: Agent 3**
+
+1) Update `docs/stateofplay.txt`
+2) Add ops notes in `docs/interactive_crawling.md` (visible mode usage)
+3) Create `docs/access_layer.md` (overview + how to operate)
+
+Success criteria
+- Anyone can run and debug the access layer from docs alone.
+
+
+Milestones
+----------
+M1: Strategy scoring + auto-promotion
+M2: Drift detection + report
+M3: Safety policies
+M4: QA dataset + replay harness
+M5: Docs + handoff
+
+
+Risk Notes
+----------
+- Auto-promotion could entrench a bad method if scoring is naive.
+- Drift alerts may be noisy; tune thresholds after first run.
+
+
+Test Plan
+---------
+1) Unit tests for scoring math and promotion/demotion logic
+2) Offline replay tests using fixtures
+3) Integration: multi-run on 3 domains with known JS variability
+4) Regression: ensure no auto-promotion when insufficient data

@@ -1,0 +1,284 @@
+Parallelization Plan: Div 4i (2 Agents)
+=======================================
+
+Goal
+----
+Implement Div 4i (Complete Capture & Focused Extraction) with two agents
+working in parallel. One agent builds the new capture pipeline, the other
+refactors extraction. No file collisions.
+
+Guiding Rule
+------------
+Agent 1 creates new files for capture. Agent 2 modifies existing files for
+extraction. Integration point is a shared interface (CaptureResult).
+
+
+===============================================================================
+AGENT ASSIGNMENTS
+===============================================================================
+
+Agent 1 — Capture Pipeline (New Files)
+--------------------------------------
+Owns:
+- `fetch/capture_config.py` (new)
+- `fetch/capture.py` (new)
+- `fetch/lazy_expander.py` (new)
+- `scripts/crawl.py` (add --capture-mode, wire capture calls)
+
+Responsibilities:
+- CaptureConfig dataclass with expansion/screenshot settings
+- capture_page() function that:
+  - Fetches HTML (using existing fetcher.py internally)
+  - Expands lazy content (scroll, click accordions)
+  - Saves HTML to corpus/raw/{domain}/pages/
+  - Takes screenshot (optional)
+  - Inventories all assets (URLs + metadata, no downloads)
+  - Writes manifest.json
+- Lazy content expansion logic (scroll to bottom, wait for loads)
+- Wire --capture-mode flag into crawl.py
+- Define CaptureResult interface for Agent 2 to consume
+
+Does NOT edit:
+- fetch/extractor.py
+- fetch/fullpage.py
+
+Parallel work (while waiting for Agent 2):
+- Screenshot capture logic
+- Manifest format and writing
+- Asset URL parsing (images, documents, videos)
+- Integration tests for capture pipeline
+
+
+Agent 2 — Extraction Refactor (Existing Files)
+----------------------------------------------
+Owns:
+- `fetch/extractor.py` (modify)
+- `fetch/fullpage.py` (modify)
+- `tests/test_extraction.py` (new)
+
+Responsibilities:
+- Add extract_from_capture() function that reads archived HTML
+- Refactor block tagging to TAG, not STRIP (nav/footer kept)
+- Enrich asset inventory with context (which block, surrounding text)
+- Output extraction JSON to corpus/extracted/{domain}/
+- Ensure extraction is reproducible from archived HTML alone
+
+Does NOT edit:
+- fetch/capture.py
+- fetch/capture_config.py
+- scripts/crawl.py (Agent 1 handles integration)
+
+Parallel work (while waiting for Agent 1):
+- Block tagging improvements (hero detection, sidebar detection)
+- Asset context extraction logic
+- Link categorization (nav/content/external/document)
+- Unit tests for extraction functions
+
+
+===============================================================================
+SHARED INTERFACE
+===============================================================================
+
+Agents must agree on this interface before starting:
+
+```python
+# === Agent 1 produces, Agent 2 consumes ===
+
+@dataclass
+class CaptureResult:
+    """Result of capturing a page."""
+    url: str
+    final_url: str
+    html_path: Path              # corpus/raw/{domain}/pages/{page}.html
+    screenshot_path: Path | None # corpus/raw/{domain}/screenshots/{page}.png
+    asset_inventory: list[AssetRef]
+    manifest_path: Path          # corpus/raw/{domain}/manifest.json
+    content_hash: str
+    captured_at: str             # ISO timestamp
+    fetch_method: str            # requests, playwright, stealth
+    headers: dict
+    cookies: list[dict]
+    error: str | None
+
+@dataclass
+class AssetRef:
+    """Reference to an asset (URL + metadata, not downloaded)."""
+    url: str
+    asset_type: str              # image, document, video
+    alt_text: str | None         # For images
+    link_text: str | None        # For documents
+    dimensions: tuple[int, int] | None  # (width, height) if detectable
+    srcset: str | None           # For responsive images
+    found_in_selector: str | None  # CSS selector hint
+
+
+# === Agent 2 produces ===
+
+@dataclass
+class ExtractionResult:
+    """Result of extracting content from captured HTML."""
+    url: str
+    title: str
+    content_hash: str
+    extracted_at: str            # ISO timestamp
+
+    main_content: MainContent
+    tagged_blocks: list[TaggedBlock]
+    images: list[ImageRef]
+    documents: list[DocumentRef]
+    links: LinkCategories
+    structured_data: StructuredData
+
+    archive: ArchiveRef          # Links back to capture
+
+@dataclass
+class MainContent:
+    text: str
+    word_count: int
+    method: str                  # trafilatura, readability, density
+    confidence: float
+
+@dataclass
+class TaggedBlock:
+    block_type: str              # nav, header, hero, main, sidebar, footer, cookie
+    text: str
+    word_count: int
+    links: list[dict] | None
+    images: list[dict] | None
+    headings: list[dict] | None
+
+@dataclass
+class ArchiveRef:
+    html_path: str
+    screenshot_path: str | None
+```
+
+
+===============================================================================
+FILE OWNERSHIP
+===============================================================================
+
+| File                      | Agent 1 | Agent 2 | Notes                    |
+|---------------------------|---------|---------|--------------------------|
+| fetch/capture_config.py   | CREATE  | —       | New file                 |
+| fetch/capture.py          | CREATE  | —       | New file                 |
+| fetch/lazy_expander.py    | CREATE  | —       | New file                 |
+| fetch/extractor.py        | —       | MODIFY  | Add extract_from_capture |
+| fetch/fullpage.py         | —       | MODIFY  | Tag-don't-strip          |
+| fetch/fetcher.py          | —       | —       | Unchanged, used by both  |
+| fetch/config.py           | READ    | READ    | May add CaptureConfig    |
+| scripts/crawl.py          | MODIFY  | —       | Add --capture-mode       |
+| tests/test_capture.py     | CREATE  | —       | New file                 |
+| tests/test_extraction.py  | —       | CREATE  | New file                 |
+
+
+===============================================================================
+INTEGRATION FLOW
+===============================================================================
+
+Phase 1: Parallel Development
+-----------------------------
+```
+Agent 1                          Agent 2
+   │                                │
+   ├─ capture_config.py             ├─ fullpage.py (tag-don't-strip)
+   ├─ lazy_expander.py              ├─ extractor.py (extract_from_capture)
+   ├─ capture.py                    ├─ extraction output format
+   ├─ manifest format               ├─ asset context enrichment
+   │                                │
+   └─ Delivers: CaptureResult       └─ Delivers: ExtractionResult
+```
+
+Phase 2: Integration (Agent 1)
+------------------------------
+```
+Agent 1 wires into crawl.py:
+
+if args.capture_mode:
+    capture = capture_page(url, capture_config, archive_dir)
+    extraction = extract_from_capture(capture, extract_config)  # Agent 2's function
+    pages.append(merge(capture, extraction))
+else:
+    # Old path (existing behavior)
+    result = fetch_source(url)
+    pages.append(process(result))
+```
+
+Phase 3: Validation
+-------------------
+- Run capture on test domain → check manifest, HTML, screenshots
+- Run extraction on captured HTML → check tagged blocks, no stripping
+- Run full pipeline → check site JSON output
+
+
+===============================================================================
+DELIVERABLES CHECKLIST
+===============================================================================
+
+Agent 1 Deliverables
+--------------------
+- [ ] fetch/capture_config.py - CaptureConfig dataclass
+- [ ] fetch/lazy_expander.py - scroll_to_bottom(), expand_accordions()
+- [ ] fetch/capture.py - capture_page() → CaptureResult
+- [ ] Screenshot capture (optional, playwright)
+- [ ] Asset inventory (parse HTML for img/a[href=pdf]/video)
+- [ ] Manifest writing (corpus/raw/{domain}/manifest.json)
+- [ ] scripts/crawl.py --capture-mode flag
+- [ ] tests/test_capture.py
+
+Agent 2 Deliverables
+--------------------
+- [ ] fetch/fullpage.py - tag blocks, stop stripping nav/footer
+- [ ] fetch/extractor.py - extract_from_capture() function
+- [ ] TaggedBlock output (nav/hero/main/footer with text + links)
+- [ ] Asset context enrichment (which block, surrounding text)
+- [ ] Link categorization (nav/content/external/document)
+- [ ] Extraction JSON output (corpus/extracted/{domain}/*.json)
+- [ ] tests/test_extraction.py
+
+
+===============================================================================
+PROGRESS LOG
+===============================================================================
+
+Template:
+- Date (YYYY-MM-DD) — Agent N — scope — files touched — status/notes
+
+Entries:
+(none yet)
+
+
+===============================================================================
+ACCEPTANCE CRITERIA
+===============================================================================
+
+1. No concurrent edits on same files
+2. Shared interface (CaptureResult) agreed before coding starts
+3. Agent 1 can capture without Agent 2's code
+4. Agent 2 can extract from manually-created test HTML
+5. Integration works: capture → extract → site JSON
+6. Feature flag allows gradual rollout
+
+
+===============================================================================
+TIMELINE EXPECTATIONS
+===============================================================================
+
+Not providing time estimates (per project guidelines), but ordering:
+
+1. Interface agreement (CaptureResult/ExtractionResult) — first
+2. Parallel development — bulk of work
+3. Integration wiring — after both deliver
+4. Testing & validation — after integration
+5. Default flip (--capture-mode becomes default) — after validation
+
+
+===============================================================================
+REFERENCES
+===============================================================================
+
+- docs/div4i.txt — Full specification for capture/extract architecture
+- docs/div40.txt — Previous parallelization example (3 agents for Div 4)
+- fetch/fetcher.py — Existing fetch logic (Agent 1 uses internally)
+- fetch/extractor.py — Current extraction (Agent 2 refactors)
+- fetch/fullpage.py — Current block tagging (Agent 2 enhances)

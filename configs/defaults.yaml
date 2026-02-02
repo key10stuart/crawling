@@ -1,0 +1,20 @@
+# Default crawl configuration
+# Loaded automatically - CLI flags override these
+#
+# Run with no args:  ./scripts/docker_crawl.sh
+# Override:          ./scripts/docker_crawl.sh --freshen 1d --jobs 8
+
+# Crawl behavior
+depth: 2
+freshen: 7d
+jobs: 4
+js_auto: true
+progress: true
+
+# Access strategy
+patient: false
+slow_drip: false
+
+# Output - quiet=true when parallel to avoid garbled output
+quiet: true
+verbose: false

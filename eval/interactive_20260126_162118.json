@@ -1,0 +1,269 @@
+{
+  "evaluated_at": "2026-01-26T16:21:18.173205",
+  "sites_evaluated": 5,
+  "overall": {
+    "avg_pct": 73.5,
+    "min_pct": 62.5,
+    "max_pct": 87.5
+  },
+  "sites": [
+    {
+      "domain": "jbhunt.com",
+      "tier": 1,
+      "sample_type": "random",
+      "pages": [
+        {
+          "url": "https://www.jbhunt.com/",
+          "page_label": "Homepage",
+          "coverage": 2,
+          "precision": 3,
+          "recency": 2,
+          "notes": "carousel and interactive elements not working perfectly, fetching text pertaining to specific features for inst",
+          "total": 7,
+          "max_possible": 8
+        },
+        {
+          "url": "https://drivers.jbhunt.com/benefits/drive-app",
+          "page_label": "Comp 1: /benefits/drive-app",
+          "coverage": null,
+          "precision": null,
+          "recency": null,
+          "notes": "extraction didn't open when the original page did",
+          "total": null,
+          "max_possible": null
+        },
+        {
+          "url": "https://www.jbhunt.com/our-company/why-jbhunt/driving-value",
+          "page_label": "Comp 2: /our-company/why-jbhunt/driving-value",
+          "coverage": null,
+          "precision": null,
+          "recency": null,
+          "notes": "didn't extract - also doesn't seem to pertain to compensation or carrier inducements",
+          "total": null,
+          "max_possible": null
+        }
+      ],
+      "summary": {
+        "coverage_avg": 2.0,
+        "coverage_count": 1,
+        "precision_avg": 3.0,
+        "precision_count": 1,
+        "recency_avg": 2.0,
+        "recency_count": 1,
+        "total_points": 7,
+        "max_points": 8,
+        "pct": 87.5
+      }
+    },
+    {
+      "domain": "werner.com",
+      "tier": 1,
+      "sample_type": "random",
+      "pages": [
+        {
+          "url": "https://www.werner.com/",
+          "page_label": "Homepage",
+          "coverage": 2,
+          "precision": 2,
+          "recency": 2,
+          "notes": "good extraction it seems. carousel not labeled as such and duplications may have occurred.",
+          "total": 6,
+          "max_possible": 8
+        },
+        {
+          "url": "https://www.werner.com/careers/fleet-maintenance-job-opportunities/",
+          "page_label": "Comp 1: /careers/fleet-maintenance-job-opportuni",
+          "coverage": 2,
+          "precision": 1,
+          "recency": 2,
+          "notes": "it was ok - i think it opens exctraction / original in different windows which i didn't notice previously in this testing run",
+          "total": 5,
+          "max_possible": 8
+        },
+        {
+          "url": "https://www.werner.com/driver-pre-qualify/",
+          "page_label": "Comp 2: /driver-pre-qualify/",
+          "coverage": 3,
+          "precision": 2,
+          "recency": 2,
+          "total": 7,
+          "max_possible": 8
+        },
+        {
+          "url": "https://www.werner.com/drivers-faq/",
+          "page_label": "Comp 3: /drivers-faq/",
+          "coverage": 2,
+          "precision": 2,
+          "recency": 2,
+          "total": 6,
+          "max_possible": 8
+        },
+        {
+          "url": "https://www.werner.com/careers/",
+          "page_label": "Comp 4: /careers/",
+          "coverage": 2,
+          "precision": 2,
+          "recency": 2,
+          "total": 6,
+          "max_possible": 8
+        },
+        {
+          "url": "https://www.werner.com/blog/truck-drivers/benefits-of-driving-for-werner-enterprises-the-werner-difference/",
+          "page_label": "Comp 5: /blog/truck-drivers/benefits-of-driving-",
+          "coverage": 2,
+          "precision": 2,
+          "recency": 2,
+          "total": 6,
+          "max_possible": 8
+        },
+        {
+          "url": "https://www.werner.com/blog/logistics/driving-change-the-importance-of-equipment-in-driver-safety-part-2/",
+          "page_label": "Comp 6: /blog/logistics/driving-change-the-impor",
+          "coverage": 2,
+          "precision": 1,
+          "recency": 2,
+          "total": 5,
+          "max_possible": 8
+        },
+        {
+          "url": "https://www.werner.com/blog/logistics/driver-work-flow/",
+          "page_label": "Comp 8: /blog/logistics/driver-work-flow/",
+          "coverage": 2,
+          "precision": 2,
+          "recency": 2,
+          "notes": "relevant to main interests but not comp related.",
+          "total": 6,
+          "max_possible": 8
+        }
+      ],
+      "summary": {
+        "coverage_avg": 2.12,
+        "coverage_count": 8,
+        "precision_avg": 1.75,
+        "precision_count": 8,
+        "recency_avg": 2.0,
+        "recency_count": 8,
+        "total_points": 47,
+        "max_points": 64,
+        "pct": 73.4
+      }
+    },
+    {
+      "domain": "knight-swift.com",
+      "tier": 1,
+      "sample_type": "random",
+      "pages": [
+        {
+          "url": "https://knight-swift.com/",
+          "page_label": "Homepage",
+          "coverage": null,
+          "precision": null,
+          "recency": null,
+          "notes": "didn't load extraction for KS",
+          "total": null,
+          "max_possible": null
+        }
+      ],
+      "summary": {
+        "coverage_avg": null,
+        "precision_avg": null,
+        "recency_avg": null
+      }
+    },
+    {
+      "domain": "odfl.com",
+      "tier": 1,
+      "sample_type": "random",
+      "pages": [
+        {
+          "url": "https://www.odfl.com/",
+          "page_label": "Homepage",
+          "coverage": 1,
+          "precision": 2,
+          "recency": 2,
+          "notes": "didn't render other objects in preview (nav stuff, images, etc)",
+          "total": 5,
+          "max_possible": 8
+        },
+        {
+          "url": "https://www.odfl.com/us/en/careers/od-people-and-family.html",
+          "page_label": "Comp 1: /us/en/careers/od-people-and-family.html",
+          "coverage": 1,
+          "precision": 2,
+          "recency": 2,
+          "notes": "again, no extraction beyond trifilatura text extraction ran",
+          "total": 5,
+          "max_possible": 8
+        },
+        {
+          "url": "https://www.odfl.com/us/en/careers/od-history.html",
+          "page_label": "Comp 2: /us/en/careers/od-history.html",
+          "coverage": 1,
+          "precision": 2,
+          "recency": 2,
+          "total": 5,
+          "max_possible": 8
+        }
+      ],
+      "summary": {
+        "coverage_avg": 1.0,
+        "coverage_count": 3,
+        "precision_avg": 2.0,
+        "precision_count": 3,
+        "recency_avg": 2.0,
+        "recency_count": 3,
+        "total_points": 15,
+        "max_points": 24,
+        "pct": 62.5
+      }
+    },
+    {
+      "domain": "schneider.com",
+      "tier": 1,
+      "sample_type": "random",
+      "pages": [
+        {
+          "url": "https://schneider.com/",
+          "page_label": "Homepage",
+          "coverage": 2,
+          "precision": 2,
+          "recency": 2,
+          "notes": "seems like a fine extraction",
+          "total": 6,
+          "max_possible": 8
+        },
+        {
+          "url": "https://schneider.com/carriers/payment-options",
+          "page_label": "Comp 1: /carriers/payment-options",
+          "coverage": 2,
+          "precision": 2,
+          "recency": 2,
+          "notes": "this is relevant to carrier inducements - good !",
+          "total": 6,
+          "max_possible": 8
+        },
+        {
+          "url": "https://schneider.com/contact-us/employment-verification",
+          "page_label": "Comp 4: /contact-us/employment-verification",
+          "coverage": 2,
+          "precision": 1,
+          "recency": 2,
+          "notes": "good page to get, but not exactly compo related",
+          "total": 5,
+          "max_possible": 8
+        }
+      ],
+      "summary": {
+        "coverage_avg": 2.0,
+        "coverage_count": 3,
+        "precision_avg": 1.67,
+        "precision_count": 3,
+        "recency_avg": 2.0,
+        "recency_count": 3,
+        "total_points": 17,
+        "max_points": 24,
+        "pct": 70.8
+      }
+    }
+  ]
+}

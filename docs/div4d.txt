@@ -1,0 +1,121 @@
+Implementation Plan: Adaptive Access Layer (Div 4d)
+===================================================
+
+Goal
+----
+Productionize the access layer for long-running operations: governance,
+compliance, and operational reliability at scale. Div 4d focuses on control,
+policy, and sustained health.
+
+Core Intent Alignment
+---------------------
+Maintain the 99% capture target while ensuring access behavior is predictable,
+auditable, and safe to operate continuously.
+
+Deliverables (Div 4d)
+---------------------
+1) Access governance + policy enforcement
+2) Multi-run scheduling + prioritization controls
+3) Proxy and network strategy (optional, controlled)
+4) Ops SLOs + alerting for access failures
+5) Runbooks + incident workflows
+
+
+Phase 1 — Governance + Policy Enforcement
+-----------------------------------------
+**Owner: Agent 1**
+
+1) Policy engine
+   - Enforce per-domain caps, max actions, and allowed methods.
+   - Honor denylist and manual_only at multiple layers.
+
+2) Audit trail
+   - Record policy decisions with reasons (JSONL).
+
+Success criteria
+- Every access decision is explainable in logs and output.
+
+
+Phase 2 — Scheduling + Prioritization
+-------------------------------------
+**Owner: Agent 1**
+
+1) Add run scheduler inputs
+   - Tier priority, freshness targets, and maximum runtime budgets.
+
+2) Priority queue
+   - Tier 1 first, blocked queue next, long-tail last.
+
+Success criteria
+- Runs finish within budget while maximizing tier-1 coverage.
+
+
+Phase 3 — Proxy Strategy (Optional, Controlled)
+-----------------------------------------------
+**Owner: Agent 1**
+
+1) Add proxy config (disabled by default)
+   - Per-domain opt-in only.
+   - Limit to known blocked domains.
+
+2) Proxy hygiene
+   - Rotate only when blocked signals occur.
+   - Track proxy success/failure per domain.
+
+Success criteria
+- Proxy use is explicit, minimal, and traceable.
+
+
+Phase 4 — Access SLOs + Alerting
+--------------------------------
+**Owner: Agent 3**
+
+1) Define SLOs
+   - Example: 95% of tier-1 domains crawlable by some method.
+
+2) Alert thresholds
+   - Block rate spikes
+   - Sudden drop in word counts
+   - Recon mismatch (new WAF detected)
+
+Success criteria
+- Operators get early warnings before coverage degrades.
+
+
+Phase 5 — Runbooks + Incident Workflow
+--------------------------------------
+**Owner: Agent 3**
+
+1) Add `docs/access_runbook.md`
+   - Troubleshooting checklist
+   - Escalation steps
+   - Recovery playbook
+
+2) Add `docs/access_incidents.md`
+   - Incident templates and postmortems
+
+Success criteria
+- On-call can resolve most access issues without code changes.
+
+
+Milestones
+----------
+M1: Policy engine + audit trail
+M2: Scheduler + priority queue
+M3: Optional proxy strategy
+M4: SLOs + alerting
+M5: Runbooks + incident docs
+
+
+Risk Notes
+----------
+- Proxy use can raise compliance risk if not tightly controlled.
+- Overly strict policies may reduce coverage if not tuned.
+
+
+Test Plan
+---------
+1) Policy enforcement unit tests
+2) Scheduler regression tests (budget adherence)
+3) Proxy fallback integration tests on a blocked domain
+4) SLO alert tests (simulate block spikes)

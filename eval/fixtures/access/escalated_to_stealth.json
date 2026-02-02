@@ -1,0 +1,48 @@
+{
+  "domain": "knight-swift.com",
+  "url": "https://www.knight-swift.com",
+  "crawl_start": "2024-01-15T14:00:00Z",
+  "crawl_end": "2024-01-15T14:12:00Z",
+  "snapshot_date": "2024-01-15",
+  "total_word_count": 12340,
+  "access": {
+    "strategy": "stealth",
+    "blocked": false,
+    "escalations": ["http->js", "js->stealth"],
+    "recon": {
+      "cdn": "stackpath",
+      "waf": "stackpath",
+      "challenge_detected": true,
+      "js_required": true,
+      "js_signals": ["sgcaptcha"]
+    },
+    "cookie_ref": "knight-swift.com",
+    "notes": "StackPath sgcaptcha - escalated to stealth with cookies"
+  },
+  "pages": [
+    {
+      "url": "https://www.knight-swift.com/",
+      "title": "Knight-Swift Transportation",
+      "word_count": 2800,
+      "fetch_method": "playwright_stealth"
+    },
+    {
+      "url": "https://www.knight-swift.com/about",
+      "title": "About Knight-Swift",
+      "word_count": 3100,
+      "fetch_method": "playwright_stealth"
+    },
+    {
+      "url": "https://www.knight-swift.com/services",
+      "title": "Our Services",
+      "word_count": 2900,
+      "fetch_method": "playwright_stealth"
+    },
+    {
+      "url": "https://www.knight-swift.com/careers",
+      "title": "Careers",
+      "word_count": 3540,
+      "fetch_method": "playwright_stealth"
+    }
+  ]
+}

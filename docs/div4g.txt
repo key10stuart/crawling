@@ -1,0 +1,106 @@
+Implementation Plan: Pro-Grade Gaps Closure (Div 4g)
+====================================================
+
+Goal
+----
+Close the remaining “pro-grade” gaps called out in Div 3: auditability,
+reliability on interactive content, and sustained coverage verification.
+
+Core Intent Alignment
+---------------------
+Ensure outputs are trustworthy, reproducible, and defensible at scale.
+
+Deliverables (Div 4g)
+---------------------
+1) Per-claim audit trail (URL + timestamp + content hash)
+2) Interactive reliability verification at scale
+3) Coverage verification dashboard + pass/fail thresholds
+4) Scheduled runs with retained snapshots + diff tracking
+
+
+Phase 1 — Per-Claim Audit Trail
+-------------------------------
+**Owner: Agent 3**
+
+1) Extend comp report JSON to include:
+   - `page_timestamp` (crawl_timestamp)
+   - `page_hash` (content_hash)
+   - `snippet_hash` (hash of snippet text)
+
+2) Ensure each claim can be traced back to:
+   - URL, site, and date
+   - Raw HTML path (if archived)
+
+Success criteria
+- Every reported claim is auditable with a deterministic hash.
+
+
+Phase 2 — Interactive Reliability Verification
+-----------------------------------------------
+**Owner: Agent 2**
+
+1) Add regression suite for tabs/accordions/carousels
+   - Fixed test domains or fixtures
+   - Compare baseline vs interactive word deltas
+
+2) Track reliability metrics
+   - % of interactive pages with >10% content gain
+   - % of pages with no regressions vs baseline
+
+Success criteria
+- Demonstrated reliability on 20+ interactive pages.
+
+
+Phase 3 — Coverage Verification Dashboard
+-----------------------------------------
+**Owner: Agent 3**
+
+1) Create `scripts/coverage_report.py`
+   - Coverage/precision scores from human eval
+   - Tier breakdowns
+   - Top misses/false positives
+
+2) Define pass/fail gates
+   - Avg ≥ 6/8 and no site < 4/8
+   - Tier 1 avg ≥ 7/8
+
+Success criteria
+- One report answers: “Are we pro-grade yet?”
+
+
+Phase 4 — Scheduled Runs + Snapshot Retention
+---------------------------------------------
+**Owner: Agent 1**
+
+1) Add scheduled run wrapper
+   - Monthly run via cron-compatible script
+   - Save reports under `corpus/reports/YYYY-MM/`
+
+2) Retain prior snapshots
+   - Keep last N runs (e.g., 12 months)
+   - Auto-generate diffs vs prior run
+
+Success criteria
+- A single command produces this month’s report + diffs vs last run.
+
+
+Milestones
+----------
+M1: Per-claim audit fields in report JSON
+M2: Interactive reliability test suite
+M3: Coverage verification dashboard
+M4: Scheduled run + snapshot retention
+
+
+Risk Notes
+----------
+- Audit trails increase report size; keep snippet hashes compact.
+- Interactive reliability may vary by site changes; track deltas over time.
+
+
+Test Plan
+---------
+1) Unit tests for audit fields and hash stability
+2) Regression suite for interactive pages (baseline vs interactive)
+3) Coverage report sanity checks (tier metrics)
+4) End-to-end: scheduled run → report → diff → audit lookup

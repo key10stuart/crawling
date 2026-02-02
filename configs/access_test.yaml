@@ -1,0 +1,11 @@
+# Access test configuration
+# Tests homepage access only - fast validation of access layer
+#
+# Usage: ./scripts/docker_crawl.sh --tier 1 --run-config configs/access_test.yaml
+
+depth: 0          # Homepage only
+jobs: 8           # Max parallelism
+freshen: 1h       # Re-test if older than 1 hour
+js_auto: true     # Use smart method selection
+progress: true    # Show progress bar
+quiet: true       # Suppress per-page noise

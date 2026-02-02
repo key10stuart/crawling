@@ -1,0 +1,263 @@
+Implementation Plan: Adaptive Access Layer (Div 4a)
+===================================================
+
+Goal
+----
+Complete the “universal access” workflow for blocked/JS-heavy sites by adding
+recon, per-site fetch configuration, strategy selection, and learning memory.
+This is a narrow, executable slice of Div 4 focused on reliable access.
+
+Core Intent Alignment
+---------------------
+Maintain a 99% capture target for ALL text, images, and code, including UI
+structure. The access layer must improve reliability without sacrificing
+coverage or traceability.
+
+Deliverables (Div 4a)
+---------------------
+1) Per-site fetch config support in seeds and run configs
+2) Recon phase (lightweight fingerprinting)
+3) Strategy selection + escalation ladder
+4) Persistent “what worked” memory per domain
+5) Crawl output includes access diagnostics
+
+
+Phase 1 — Per-Site Fetch Config (Seeds + Overrides)
+---------------------------------------------------
+**Owner: Agent 1**
+
+1) Seeds schema update (backwards compatible)
+   - Allow optional `fetch` block on carrier entries:
+     ```json
+     "fetch": {
+       "method": "requests|js|stealth|visible",
+       "js_auto": true,
+       "js_fallback": true,
+       "patient": false,
+       "slow_drip": false,
+       "delay": 3.0,
+       "headless": true
+     }
+     ```
+
+2) Add CLI/run-config overrides
+   - `--fetch-method` (requests|js|stealth|visible)
+   - `--fetch-profile` (name of a saved method profile)
+   - Resolve precedence: CLI > run-config > seed fetch > defaults
+
+3) Wire into crawl config
+   - Translate method to `use_js`, `use_stealth`, `headless`.
+   - Respect `delay`, `patient`, `slow_drip`.
+
+Success criteria
+- Any site can declare a different method without changing code.
+- CLI overrides always win.
+
+
+Phase 2 — Recon Phase (Lightweight Fingerprinting)
+--------------------------------------------------
+**Owner: Agent 1**
+
+1) Create `fetch/recon.py`
+   - Inputs: base_url
+   - Output: ReconResult { cdn, waf, js_signals, headers, status, notes }
+
+2) Signals (minimal, fast)
+   - Response headers (server, cf-ray, x-akamai, x-cdn, sg-captcha, etc.)
+   - HTML markers (cf-browser-verification, “just a moment”, noscript warnings)
+   - JS framework hints (already in js_detect)
+
+3) Cache recon per domain (ttl 7 days)
+
+Success criteria
+- Recon adds <1 request per domain, cached.
+- Surface protection type in logs and output.
+
+
+Phase 3 — Strategy Selection & Escalation Ladder
+------------------------------------------------
+**Owner: Agent 1**
+
+1) Define strategy ladder
+   - requests
+   - js (Playwright headless)
+   - stealth
+   - visible
+   - patient/slow-drip
+
+2) Selection rules
+   - If per-site config set → use it.
+   - Else if recon shows strong protection → start at stealth or visible.
+   - Else if JS-heavy → start at js.
+   - Else start at requests.
+
+3) Escalation triggers
+   - 403 / 202 / challenge page text
+   - word_count < threshold + low confidence
+   - repeated duplicate hash on non-trivial URLs
+
+4) Stop conditions
+   - If “manual_only” signal set, skip and annotate.
+
+Success criteria
+- Sites blocked on requests automatically upgrade without manual flags.
+- Strategy decision stored in output.
+
+
+Phase 4 — Persistent Memory (What Worked)
+----------------------------------------
+**Owner: Agent 1**
+
+1) Create `corpus/access/strategy_cache.json`
+   - Key: base_domain
+   - Value: { last_success_method, last_fail_method, last_seen_block, updated_at }
+
+2) Use cache to prime strategy
+   - If last success exists and recent, start there.
+
+3) Update cache at end of crawl
+   - Store method used for best pages + block signatures.
+
+Success criteria
+- Second run on same site reuses the best method.
+- Cache is human-readable, safe to edit.
+
+
+Phase 5 — Output & Diagnostics
+------------------------------
+**Owner: Agent 1**
+
+1) Extend site JSON
+   ```json
+   "access": {
+     "recon": {"cdn": "cloudflare", "signals": ["cf-ray"]},
+     "strategy": "stealth",
+     "escalations": ["requests->js", "js->stealth"],
+     "blocked": false,
+     "notes": ""
+   }
+   ```
+
+2) Extend per-page metadata (optional)
+   - `fetch_method`, `blocked_indicator`, `challenge_detected`
+
+Success criteria
+- Access state is fully auditable per site.
+
+
+Phase 6 — Cookie Persistence
+----------------------------
+**Owner: Agent 1**
+
+Sites like Knight-Swift require solving a CAPTCHA once. Save and reuse that session.
+
+1) Cookie store structure
+   ```
+   ~/.crawl/
+   └── cookies/
+       ├── knight-swift.com.json
+       ├── another-site.com.json
+       └── ...
+   ```
+
+2) Cookie file format (Playwright standard)
+   ```json
+   [
+     {
+       "name": "cf_clearance",
+       "value": "abc123...",
+       "domain": ".knight-swift.com",
+       "path": "/",
+       "expires": 1738000000,
+       "httpOnly": true,
+       "secure": true,
+       "sameSite": "None"
+     }
+   ]
+   ```
+
+3) Create `scripts/bootstrap_cookies.py`
+   - Opens visible browser to target domain
+   - Waits for human to solve CAPTCHA
+   - Saves cookies on Enter
+   ```bash
+   python scripts/bootstrap_cookies.py --domain knight-swift.com
+   # Solve the CAPTCHA, then press Enter...
+   # Saved 12 cookies to ~/.crawl/cookies/knight-swift.com.json
+   ```
+
+4) Create `fetch/cookies.py` with utilities
+   - `load_site_cookies(domain) -> list[dict] | None`
+   - `save_site_cookies(domain, cookies)`
+   - `check_cookie_expiry(domain) -> bool` (warn if expiring soon)
+
+5) Wire into Playwright fetch
+   ```python
+   # In fetch_playwright():
+   if cookies := load_site_cookies(domain):
+       context.add_cookies(cookies)
+   ```
+
+6) Per-site config integration
+   - Add `cookies` field to seed fetch config:
+     ```json
+     "fetch": {
+       "method": "stealth",
+       "cookies": "knight-swift.com"
+     }
+     ```
+   - If set, load cookies before fetch
+
+7) Expiry handling
+   - Check `expires` field before using
+   - Warn in logs if cookies expired or expiring within 24h
+   - Re-bootstrap workflow when cookies fail
+
+Success criteria
+- CAPTCHA solved once, reused across runs
+- Expiry warnings prevent silent failures
+- Cookie loading integrated with strategy selection
+
+
+Milestones
+----------
+M1: Per-site fetch config + CLI overrides
+M2: Recon module + cache
+M3: Strategy selection + escalation
+M4: Persistent memory + output diagnostics
+M5: Cookie persistence + bootstrap tool
+
+
+Files
+-----
+Modified:
+- `scripts/crawl.py` - Per-site config parsing, strategy selection
+- `fetch/fetcher.py` - Cookie loading, strategy application
+- `fetch/config.py` - New fields for fetch options
+
+New:
+- `fetch/recon.py` - Site fingerprinting
+- `fetch/cookies.py` - Cookie load/save utilities
+- `scripts/bootstrap_cookies.py` - Manual CAPTCHA bootstrap tool
+- `corpus/access/strategy_cache.json` - Persistent memory
+
+Data files:
+- `~/.crawl/cookies/{domain}.json` - Saved cookies per domain
+
+
+Risk Notes
+----------
+- Aggressive anti-bot providers (StackPath sgcaptcha) may still fail even with cookies.
+- Visible browser mode might require local displays; document this.
+- Keep recon cheap to avoid added blocking surface.
+- Cookies expire; need monitoring and re-bootstrap workflow.
+
+
+Test Plan
+---------
+1) Unit tests for recon parser (headers + HTML markers)
+2) Strategy selection tests (given recon + config)
+3) Integration on known blocked domains (Knight-Swift, etc.)
+4) Regression: ensure normal sites still crawl via requests
+5) Cookie bootstrap: verify save/load round-trip
+6) Cookie expiry: verify warning when cookies near expiration

@@ -1,0 +1,279 @@
+CLI Configuration Principles
+============================
+
+This project follows "Convention over Configuration" (CoC) and "Layered Configuration"
+patterns for a zero-friction developer experience.
+
+
+Core Principles
+---------------
+
+1. SENSIBLE DEFAULTS
+   The tool should "just work" with no arguments for the common case.
+   Users shouldn't need to read docs to get started.
+
+   Bad:  crawl.py --depth 2 --freshen 7d --jobs 4 --js-auto --progress --tier 1
+   Good: crawl.py --tier 1
+
+2. CONFIGURATION HIERARCHY
+   Multiple layers, each overriding the previous:
+
+   ┌─────────────────────────────────────────────────────────────┐
+   │  Code defaults (lowest priority)                           │
+   │       ↓                                                    │
+   │  configs/defaults.yaml (project defaults)                  │
+   │       ↓                                                    │
+   │  --run-config custom.yaml (run-specific)                   │
+   │       ↓                                                    │
+   │  CLI flags (highest priority)                              │
+   └─────────────────────────────────────────────────────────────┘
+
+3. EXPLICIT OVERRIDES IMPLICIT
+   CLI flags always win. If you specify --freshen 1d, it overrides
+   the config file's freshen: 7d.
+
+4. NO HIDDEN MAGIC
+   Config files are plain YAML in obvious locations (configs/).
+   No environment variable soup, no dotfiles in 5 different places.
+
+5. PROGRESSIVE DISCLOSURE
+   Simple things are simple, complex things are possible.
+
+   - Beginner:  ./docker_crawl.sh --tier 1
+   - Advanced:  ./docker_crawl.sh --tier 1 --slow-drip --run-id night_batch
+   - Expert:    --run-config configs/stubborn_sites.yaml
+
+
+Configuration Files
+-------------------
+
+configs/defaults.yaml     Project-wide defaults, auto-loaded
+configs/*.yaml            Custom configs for specific scenarios
+profiles/*.yaml           Domain-specific behavior (crawl profiles, fetch profiles)
+
+
+Example: configs/defaults.yaml
+------------------------------
+
+    # Loaded automatically - CLI flags override these
+    depth: 2
+    freshen: 7d
+    jobs: 4
+    js_auto: true
+    progress: true
+
+
+Flag Design Guidelines
+----------------------
+
+1. FLAGS SHOULD BE ADDITIVE
+   --verbose adds detail, --quiet removes it
+   --js-auto enables intelligence, not disables it
+
+2. BOOLEAN FLAGS USE action='store_true'
+   --progress (not --progress=true)
+   --no-headless (explicit negation when needed)
+
+3. AVOID REQUIRED FLAGS
+   If something is always needed, make it a positional arg or default it.
+
+4. GROUP RELATED FLAGS
+   --slow-drip applies ultra-patient delays.
+   One flag for a coherent behavior bundle.
+
+5. PROVIDE ESCAPE HATCHES
+   --docker for containerized execution
+   --no-headless for visible browser debugging
+
+
+Anti-Patterns to Avoid
+----------------------
+
+1. SCATTERED CONFIGURATION
+   Bad: .crawlrc, ~/.config/crawl/config.yaml, CRAWL_* env vars
+   Good: configs/defaults.yaml (one place)
+
+2. REQUIRED BOILERPLATE
+   Bad: Must always specify --output-dir, --format, --log-level
+   Good: Sensible defaults, override only when needed
+
+3. SURPRISING DEFAULTS
+   Bad: --destructive defaults to true
+   Good: Safe by default, opt-in to dangerous operations
+
+4. FLAG EXPLOSION
+   Bad: 47 flags for every possible option
+   Good: Config file for complex cases, flags for common overrides
+
+5. INCONSISTENT NAMING
+   Bad: --js-auto, --use_stealth, --enableProgress
+   Good: --js-auto, --stealth, --progress (consistent kebab-case)
+
+
+Application to This Project
+===========================
+
+Currently Implemented
+---------------------
+
+1. AUTO-LOADED DEFAULTS
+   configs/defaults.yaml is loaded automatically by crawl.py
+   No --run-config flag needed for standard runs.
+
+   Implementation: crawl.py lines 1730-1734
+
+       default_config = PROJECT_ROOT / "configs" / "defaults.yaml"
+       if default_config.exists():
+           cfg = load_run_config(str(default_config))
+
+2. LAYERED OVERRIDE
+   CLI flags override config file values via provided_flags check.
+
+   Implementation: apply_run_config() skips keys in provided_flags set
+
+3. BEHAVIORAL BUNDLES
+   --slow-drip enables ultra-patient delay schedule.
+
+4. DOCKER ABSTRACTION
+   ./scripts/docker_crawl.sh wraps complexity of Xvfb/container setup.
+   User just adds --docker to crawl.py or uses the script directly.
+
+5. PROGRESS MODE
+   --progress flag switches from verbose logs to clean tqdm bars.
+   Minimal output with per-site progress.
+
+6. STATUS FILE FOR MONITORING
+   corpus/crawl_status.json written during runs for external monitoring.
+   No need to parse log output.
+
+
+Future Improvements
+-------------------
+
+1. SMARTER DEFAULTS PER TIER
+   Tier 1 (major carriers): more patient, retry harder
+   Tier 3 (small companies): quick and simple
+
+   Could implement:
+       configs/tier1.yaml, configs/tier2.yaml, configs/tier3.yaml
+       Auto-select based on --tier flag
+
+2. DOMAIN-SPECIFIC OVERRIDES
+   Some domains always need special handling.
+
+   Could implement:
+       configs/domains/jbhunt.yaml
+       configs/domains/schneider.yaml
+
+   Auto-loaded when crawling that domain.
+
+3. ENVIRONMENT-BASED DEFAULTS
+   CRAWL_ENV=production loads configs/production.yaml
+   CRAWL_ENV=development loads configs/development.yaml
+
+   Useful for CI/CD pipelines vs local development.
+
+4. INTERACTIVE CONFIG WIZARD
+   crawl.py --init
+   Walks user through creating their defaults.yaml
+
+5. CONFIG VALIDATION
+   Warn on unknown keys in YAML (typo detection)
+   Validate value types and ranges
+
+6. DRY-RUN MODE
+   crawl.py --tier 1 --dry-run
+   Shows what would be crawled, with what settings, without doing it.
+   Helps users understand config resolution.
+
+7. EXPLAIN MODE
+   crawl.py --explain-config
+   Shows final resolved config after all layers applied.
+
+       depth: 2          (from: configs/defaults.yaml)
+       freshen: 1d       (from: CLI --freshen 1d)
+       jobs: 4           (from: configs/defaults.yaml)
+
+8. FETCH PROFILES AS FIRST-CLASS CITIZENS
+   crawl.py --fetch-profile aggressive
+   crawl.py --fetch-profile gentle
+   crawl.py --fetch-profile stealth
+
+   Each profile bundles fetch settings coherently.
+   More discoverable than remembering flag combinations.
+
+9. SHELL COMPLETION
+   Tab completion for flags, domains, profiles.
+
+       crawl.py --tier <TAB>    → 1, 2, 3
+       crawl.py --profile <TAB> → trucking, generic, aggressive
+
+10. UNDO/HISTORY
+    Track what was run and when.
+    crawl.py --history
+    crawl.py --rerun last
+
+
+Current Config Flow Diagram
+---------------------------
+
+    ┌──────────────────────────────────────────────────────────────────┐
+    │  User runs: ./docker_crawl.sh --tier 1 --freshen 1d             │
+    └──────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+    ┌──────────────────────────────────────────────────────────────────┐
+    │  docker_crawl.sh                                                 │
+    │  - Checks Docker daemon                                          │
+    │  - Builds image if needed                                        │
+    │  - Mounts corpus/ volume                                         │
+    │  - Passes args to container                                      │
+    └──────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+    ┌──────────────────────────────────────────────────────────────────┐
+    │  crawl.py (inside container)                                     │
+    │                                                                  │
+    │  1. Parse CLI args                                               │
+    │     provided_flags = {tier, freshen}                             │
+    │                                                                  │
+    │  2. Load configs/defaults.yaml                                   │
+    │     cfg = {depth: 2, freshen: 7d, jobs: 4, ...}                 │
+    │                                                                  │
+    │  3. Apply config, respecting CLI overrides                       │
+    │     args.depth = 2        (from config)                          │
+    │     args.freshen = "1d"   (from CLI, overrides config's 7d)     │
+    │     args.jobs = 4         (from config)                          │
+    │     args.progress = true  (from config)                          │
+    │                                                                  │
+    │  4. Execute crawl with resolved settings                         │
+    └──────────────────────────────────────────────────────────────────┘
+
+
+Effective CLI Surface (Capture-Only)
+===================================
+
+Primary flags:
+- --domain, --tier, --limit
+- --depth
+- --fetch-method (requests/js/stealth/visible)
+- --fetch-profile (profiles/fetch_profiles.yaml)
+- --no-headless
+- --delay, --patient, --slow-drip
+- --run-config, --run-id
+- --freshen
+- --jobs, --progress
+- --docker, --docker-rebuild
+
+Notes:
+- Capture pipeline is now the default execution path.
+- Legacy crawl flags have been removed to reduce confusion.
+
+
+References
+----------
+
+- Ruby on Rails: Convention over Configuration
+- 12-Factor App: Config (https://12factor.net/config)
+- UNIX Philosophy: "Rule of Least Surprise"
+- Click library docs: "User-friendly CLI guidelines"

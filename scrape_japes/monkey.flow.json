@@ -1,0 +1,205 @@
+[
+  {
+    "action": "request",
+    "method": "GET",
+    "url": "https://atlantacityga.iqm2.com/Citizens/Calendar.aspx"
+  },
+  {
+    "action": "navigate",
+    "url": "https://atlantacityga.iqm2.com/Citizens/Calendar.aspx"
+  },
+  {
+    "action": "request",
+    "method": "GET",
+    "url": "https://atlantacityga.iqm2.com/App_Themes/Main.css?v=86"
+  },
+  {
+    "action": "request",
+    "method": "GET",
+    "url": "https://atlantacityga.iqm2.com/lib/jquery-ui.css"
+  },
+  {
+    "action": "request",
+    "method": "GET",
+    "url": "https://atlantacityga.iqm2.com/lib/jquery.js"
+  },
+  {
+    "action": "request",
+    "method": "GET",
+    "url": "https://atlantacityga.iqm2.com/App_Themes/Global.js?v=8_10_48"
+  },
+  {
+    "action": "request",
+    "method": "GET",
+    "url": "https://atlantacityga.iqm2.com/lib/MinuteTraq.PopupWindow.js"
+  },
+  {
+    "action": "request",
+    "method": "GET",
+    "url": "https://atlantacityga.iqm2.com/lib/jquery-ui.js"
+  },
+  {
+    "action": "request",
+    "method": "GET",
+    "url": "https://unpkg.com/video.js@7.21.1/dist/video-js.css"
+  },
+  {
+    "action": "request",
+    "method": "GET",
+    "url": "https://atlantacityga.iqm2.com/Scripts/videojs-live-dvr/videojs-dvrseekbar.css"
+  },
+  {
+    "action": "request",
+    "method": "GET",
+    "url": "https://unpkg.com/video.js@7.21.1/dist/video.js"
+  },
+  {
+    "action": "request",
+    "method": "GET",
+    "url": "https://unpkg.com/videojs-flash@2.1.0/dist/videojs-flash.min.js"
+  },
+  {
+    "action": "request",
+    "method": "GET",
+    "url": "https://unpkg.com/videojs-contrib-hls/dist/videojs-contrib-hls.js"
+  },
+  {
+    "action": "request",
+    "method": "GET",
+    "url": "https://atlantacityga.iqm2.com/Scripts/videojs-live-dvr/videojs-dvrseekbar.min.js"
+  },
+  {
+    "action": "request",
+    "method": "GET",
+    "url": "https://atlantacityga.iqm2.com/Scripts/player.js"
+  },
+  {
+    "action": "request",
+    "method": "GET",
+    "url": "https://atlantacityga.iqm2.com/Scripts/js.cookie-2.0.3.min.js"
+  },
+  {
+    "action": "request",
+    "method": "GET",
+    "url": "https://atlantacityga.iqm2.com/Lib/GetCustomCSS.ashx?timestamp=637781046030000000"
+  },
+  {
+    "action": "request",
+    "method": "GET",
+    "url": "https://atlantacityga.iqm2.com/Citizens/GetImage.aspx?ID=1039"
+  },
+  {
+    "action": "request",
+    "method": "GET",
+    "url": "https://atlantacityga.iqm2.com/Citizens/GetImage.aspx?ID=1040"
+  },
+  {
+    "action": "request",
+    "method": "GET",
+    "url": "https://atlantacityga.iqm2.com/Lib/MinuteTraq.Search.js?v=8_10_66"
+  },
+  {
+    "action": "request",
+    "method": "GET",
+    "url": "https://atlantacityga.iqm2.com/Lib/fullcalendar/fullcalendar.css"
+  },
+  {
+    "action": "request",
+    "method": "GET",
+    "url": "https://atlantacityga.iqm2.com/Lib/fullcalendar/moment.min.js"
+  },
+  {
+    "action": "request",
+    "method": "GET",
+    "url": "https://atlantacityga.iqm2.com/Lib/fullcalendar/fullcalendar.min.js"
+  },
+  {
+    "action": "request",
+    "method": "GET",
+    "url": "https://atlantacityga.iqm2.com/Citizens/GetImage.aspx?ID=1122&TimeStamp=637781046030000000"
+  },
+  {
+    "action": "request",
+    "method": "GET",
+    "url": "https://atlantacityga.iqm2.com/Lib/images/search.png"
+  },
+  {
+    "action": "request",
+    "method": "GET",
+    "url": "https://atlantacityga.iqm2.com/Citizens/images/Print.gif"
+  },
+  {
+    "action": "request",
+    "method": "GET",
+    "url": "https://atlantacityga.iqm2.com/Lib/images/Loading_Snake_32x32.gif"
+  },
+  {
+    "action": "request",
+    "method": "GET",
+    "url": "https://atlantacityga.iqm2.com/Citizens/images/RSS_60x20.png"
+  },
+  {
+    "action": "request",
+    "method": "GET",
+    "url": "https://atlantacityga.iqm2.com/Citizens/images/MeetingIcon.gif"
+  },
+  {
+    "action": "request",
+    "method": "GET",
+    "url": "https://atlantacityga.iqm2.com/Citizens/images/MeetingCancelled.png"
+  },
+  {
+    "action": "request",
+    "method": "GET",
+    "url": "https://www.googletagmanager.com/gtag/js?id=UA-70364301-2"
+  },
+  {
+    "action": "request",
+    "method": "GET",
+    "url": "https://static.woopra.com/js/w.js"
+  },
+  {
+    "action": "request",
+    "method": "GET",
+    "url": "https://unpkg.com/videojs-contrib-hls@5.15.0/dist/videojs-contrib-hls.js"
+  },
+  {
+    "action": "request",
+    "method": "GET",
+    "url": "https://www.woopra.com/track/ce/?project=iqm2.com&instance=woopra&meta=&screen=1280x720&language=en-US&app=js-client&referer=&cookie=rXvFqlHiyUc3&event=mp_pv&timeout=300000&idptnc=MQk4ibQMAtSo&ce_domain=atlantacityga.iqm2.com&ce_title=Meeting%20Calendar%20-%20City%20of%20Atlanta%2C%20Georgia&ce_url=https%3A%2F%2Fatlantacityga.iqm2.com%2FCitizens%2FCalendar.aspx&ce_uri=%2FCitizens%2FCalendar.aspx&ce_hash=&ce_error=null"
+  },
+  {
+    "action": "request",
+    "method": "GET",
+    "url": "https://www.woopra.com/track/identify/?project=iqm2.com&instance=woopra&meta=&screen=1280x720&language=en-US&app=js-client&referer=&cookie=rXvFqlHiyUc3&timeout=300000&cv_email=&cv_name=Anonymous%20User&cv_agency=AtlantaCityGA&cv_userlogin=Anonymous"
+  },
+  {
+    "action": "request",
+    "method": "GET",
+    "url": "https://www.googletagmanager.com/gtag/js?id=G-7R5E5J3P4X&l=dataLayer&cx=c&gtm=457e54f1za200&tag_exp=102509682~102803279~102813109~102887800~102926062~103027016~103051953~103055465~103077950~103106314~103106316"
+  },
+  {
+    "action": "request",
+    "method": "GET",
+    "url": "https://www.google-analytics.com/analytics.js"
+  },
+  {
+    "action": "request",
+    "method": "POST",
+    "url": "https://www.google-analytics.com/g/collect?v=2&tid=G-7R5E5J3P4X&gtm=45je54f1v9125595106za200&_p=1744870620377&gcd=13l3l3l3l1l1&npa=0&dma=0&tag_exp=102509683~102803279~102813109~102887800~102926062~103027016~103051953~103055465~103077950~103101747~103101749~103106314~103106316&cid=526187942.1744870621&ul=en-us&sr=1280x720&ir=1&uaa=arm&uab=64&uafvl=Not%253AA-Brand%3B24.0.0.0%7CChromium%3B134.0.6998.35&uamb=0&uam=&uap=macOS&uapv=14.6.0&uaw=0&are=1&frm=0&pscdl=noapi&_eu=EAAI&_s=1&sid=1744870620&sct=1&seg=0&dl=https%3A%2F%2Fatlantacityga.iqm2.com%2FCitizens%2FCalendar.aspx&dt=Meeting%20Calendar%20-%20City%20of%20Atlanta%2C%20Georgia&en=page_view&_fv=1&_nsi=1&_ss=1&tfd=1625"
+  },
+  {
+    "action": "request",
+    "method": "POST",
+    "url": "https://www.google-analytics.com/j/collect?v=1&_v=j101&a=499551856&t=pageview&_s=1&dl=https%3A%2F%2Fatlantacityga.iqm2.com%2FCitizens%2FCalendar.aspx&ul=en-us&de=UTF-8&dt=Meeting%20Calendar%20-%20City%20of%20Atlanta%2C%20Georgia&sd=30-bit&sr=1280x720&vp=1280x720&je=0&_u=YADAAUABAAAAACAAI~&jid=154134364&gjid=1359712907&cid=526187942.1744870621&tid=UA-70364301-2&_gid=914724177.1744870621&_r=1&gtm=457e54f1za200&gcd=13l3l3l3l1l1&dma=0&tag_exp=102509682~102803279~102813109~102887800~102926062~103027016~103051953~103055465~103077950~103106314~103106316&jsscut=1&z=810118562"
+  },
+  {
+    "action": "switch_tab",
+    "url": "https://atlantacityga.iqm2.com/Citizens/FileOpen.aspx?Type=14&ID=3645&Inline=True"
+  },
+  {
+    "action": "request",
+    "method": "GET",
+    "url": "https://atlantacityga.iqm2.com/favicon.ico?v=2018"
+  }
+]

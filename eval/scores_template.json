@@ -1,0 +1,14 @@
+{
+  "evaluator": "YOUR_NAME",
+  "date": "2026-01-26",
+  "notes": "Fill in scores for each site after manual review",
+  "scores": [
+    {
+      "domain": "example.com",
+      "coverage": 0,
+      "precision": 0,
+      "recency": 0,
+      "notes": "Describe any issues observed"
+    }
+  ]
+}

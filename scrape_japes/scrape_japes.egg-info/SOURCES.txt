@@ -1,0 +1,9 @@
+pyproject.toml
+scrape_japes/__init__.py
+scrape_japes/cli.py
+scrape_japes/monkey_see.py
+scrape_japes.egg-info/PKG-INFO
+scrape_japes.egg-info/SOURCES.txt
+scrape_japes.egg-info/dependency_links.txt
+scrape_japes.egg-info/entry_points.txt
+scrape_japes.egg-info/top_level.txt

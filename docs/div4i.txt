@@ -1,0 +1,632 @@
+Implementation Plan: Complete Capture & Focused Extraction (Div 4i)
+===================================================================
+
+Goal
+----
+Refactor the crawl pipeline into two distinct phases:
+1. CAPTURE: Get complete HTML state + inventory all assets (metadata only)
+2. EXTRACT: Analyze captured content, surface the good stuff, tag the rest
+
+Current system tries to do both at once, resulting in:
+- Over-aggressive text stripping (nav/footer discarded)
+- Asset URLs noted but no context captured
+- Extraction quality varies wildly
+- No way to re-analyze without re-crawling
+
+New architecture separates concerns: capture is complete, extraction is a view.
+
+
+Scope Note
+----------
+This is NOT a web archiver. We capture:
+- Complete HTML (rendered state)
+- Asset metadata (URLs, alt text, dimensions, context)
+- Optional screenshots (small, useful for QA)
+
+We do NOT download:
+- Images, PDFs, videos, CSS, JS
+
+The goal is intelligent analysis and extraction, not preservation.
+Links will go stale - that's acceptable. The signal that something
+changed is often more valuable than having the old bytes.
+
+
+Philosophy
+----------
+1. **Capture complete HTML state** - rendered, with lazy content expanded
+2. **Inventory assets, don't download them** - URLs + metadata, not bytes
+3. **Tag, don't strip** - boilerplate is flagged, not deleted
+4. **Extraction is the deliverable** - clean text + structured metadata
+5. **Lightweight storage** - no bloat from redundant assets
+
+
+===============================================================================
+PART 1: CURRENT STATE ANALYSIS
+===============================================================================
+
+What We Have Now
+----------------
+```
+fetch/
+├── fetcher.py      # Basic fetch (requests/playwright)
+├── extractor.py    # Text extraction (trafilatura/readability/density)
+├── fullpage.py     # Tagged block extraction
+├── config.py       # FetchConfig dataclass
+└── ...
+
+scripts/crawl.py    # 1800-line monolith doing everything
+```
+
+Problems:
+1. `fetcher.py` returns HTML, immediately passed to extractors
+2. Extractors strip content during the same pass
+3. Asset URLs captured but no context (what section? what's nearby?)
+4. No separation between "get the page" and "analyze the page"
+5. Re-analysis requires re-crawling
+
+
+What Gets Lost Currently
+------------------------
+| Content Type    | Current Behavior           | Should Be              |
+|-----------------|----------------------------|------------------------|
+| Nav/Header      | Stripped by extractors     | Tagged, kept in output |
+| Footer          | Stripped by extractors     | Tagged, kept in output |
+| Hero sections   | Partially captured         | Fully tagged with context |
+| Cookie banners  | Stripped                   | Tagged, kept           |
+| Image context   | URL only                   | URL + alt + surrounding text + section |
+| Document links  | Often ignored              | URL + link text + context |
+| Forms           | Ignored                    | Structure captured     |
+
+
+===============================================================================
+PART 2: TARGET ARCHITECTURE
+===============================================================================
+
+New Pipeline
+------------
+```
+URL
+ │
+ ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│  PHASE 1: CAPTURE (fetch/capture.py)                                │
+│                                                                     │
+│  Inputs: URL, CaptureConfig                                         │
+│  Outputs: CaptureResult with HTML + asset inventory                 │
+│                                                                     │
+│  Steps:                                                             │
+│  1. Fetch HTML (requests or playwright based on strategy)           │
+│  2. If JS site: expand lazy content (scroll, click accordions)      │
+│  3. Save final HTML state                                           │
+│  4. Parse HTML, inventory all assets:                               │
+│     - Images: URL, alt, dimensions, srcset                          │
+│     - Documents: URL, link text, file type                          │
+│     - Videos: URL, poster, duration if available                    │
+│  5. Take screenshot (optional, for visual QA)                       │
+│  6. Record metadata (timing, headers, cookies)                      │
+│  7. Write manifest                                                  │
+│                                                                     │
+│  Output structure:                                                  │
+│    corpus/raw/{domain}/                                             │
+│    ├── pages/                                                       │
+│    │   ├── index.html                                               │
+│    │   ├── about.html                                               │
+│    │   └── ...                                                      │
+│    ├── screenshots/  (optional)                                     │
+│    │   ├── index.png                                                │
+│    │   └── about.png                                                │
+│    └── manifest.json                                                │
+└─────────────────────────────────────────────────────────────────────┘
+ │
+ ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│  PHASE 2: EXTRACT (fetch/extract.py)                                │
+│                                                                     │
+│  Inputs: CaptureResult (path to archived HTML + manifest)           │
+│  Outputs: ExtractionResult with structured content                  │
+│                                                                     │
+│  Steps:                                                             │
+│  1. Load HTML from archive                                          │
+│  2. Tag all content blocks:                                         │
+│     - nav_block, header_block, hero_block                           │
+│     - main_block, article_block, sidebar_block                      │
+│     - footer_block, cookie_block, modal_block                       │
+│  3. Extract text from each block (preserve structure)               │
+│  4. Run focused extraction (trafilatura) for "main content"         │
+│  5. Enrich asset inventory with context:                            │
+│     - Which block is this image in?                                 │
+│     - What text surrounds it?                                       │
+│     - Is it decorative or content?                                  │
+│  6. Extract structured data (JSON-LD, OpenGraph, meta)              │
+│  7. Analyze forms (fields, actions, purposes)                       │
+│  8. Categorize links (nav, content, external, document)             │
+│                                                                     │
+│  Output structure:                                                  │
+│    corpus/extracted/{domain}/                                       │
+│    ├── index.json                                                   │
+│    ├── about.json                                                   │
+│    └── ...                                                          │
+└─────────────────────────────────────────────────────────────────────┘
+ │
+ ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│  PHASE 3: PRESENT (site JSON, enhanced)                             │
+│                                                                     │
+│  corpus/sites/{domain}.json                                         │
+│  {                                                                  │
+│    "domain": "...",                                                 │
+│    "pages": [                                                       │
+│      {                                                              │
+│        "url": "...",                                                │
+│        "extracted": {        // The good stuff                      │
+│          "title": "...",                                            │
+│          "text": "...",                                             │
+│          "images": [...]     // URLs + context, not files           │
+│        },                                                           │
+│        "boilerplate": {      // Nav/footer, tagged not stripped     │
+│          "nav": "...",                                              │
+│          "footer": "..."                                            │
+│        },                                                           │
+│        "archive": {          // Paths to raw capture                │
+│          "html": "corpus/raw/.../page.html",                        │
+│          "screenshot": "corpus/raw/.../screenshots/page.png"        │
+│        }                                                            │
+│      }                                                              │
+│    ]                                                                │
+│  }                                                                  │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+
+===============================================================================
+PART 3: REFACTORING PLAN
+===============================================================================
+
+Overview
+--------
+This is a moderate refactor, done incrementally:
+1. Add capture module (new code, no breaking changes)
+2. Refactor extraction to work on archived HTML
+3. Update crawl.py to use new pipeline
+4. No data migration needed (new structure for new crawls)
+
+
+Phase 1: New Capture Module
+---------------------------
+Create `fetch/capture.py`:
+
+```python
+@dataclass
+class CaptureResult:
+    url: str
+    final_url: str
+    html_path: Path              # Path to saved HTML
+    screenshot_path: Path | None # Path to screenshot (optional)
+    asset_inventory: list[AssetRef]  # URLs + metadata, NOT files
+    manifest_path: Path          # JSON index
+    timing: CaptureTimingInfo
+    headers: dict
+    cookies: list[dict]
+    error: str | None
+
+@dataclass
+class AssetRef:
+    """Reference to an asset (not downloaded, just inventoried)."""
+    url: str
+    asset_type: str          # image, document, video
+    alt_text: str | None     # For images
+    link_text: str | None    # For documents
+    dimensions: tuple | None # (width, height) if detectable
+    context_selector: str    # CSS selector of parent element
+
+def capture_page(
+    url: str,
+    config: CaptureConfig,
+    archive_dir: Path,
+) -> CaptureResult:
+    """
+    Capture complete page state.
+
+    1. Fetch HTML (with strategy from recon/cache)
+    2. Expand lazy content if needed
+    3. Save HTML to archive
+    4. Inventory all assets (URLs + metadata)
+    5. Take screenshot (optional)
+    6. Write manifest
+    """
+```
+
+New `fetch/capture_config.py`:
+
+```python
+@dataclass
+class CaptureConfig:
+    # Fetch settings
+    js_required: bool = False
+    stealth: bool = False
+    headless: bool = True
+    timeout_ms: int = 30000
+
+    # Expansion settings
+    expand_lazy_content: bool = True
+    scroll_to_bottom: bool = True
+    click_accordions: bool = True
+    wait_for_lazy_ms: int = 2000  # Wait as long as needed
+
+    # Screenshot settings
+    take_screenshot: bool = True
+    screenshot_full_page: bool = True
+```
+
+
+Phase 2: Refactor Extraction
+----------------------------
+Current `fetch/extractor.py` works on raw HTML string.
+Refactor to work on archived HTML with richer output:
+
+```python
+def extract_from_capture(
+    capture: CaptureResult,
+    config: ExtractionConfig,
+) -> ExtractionResult:
+    """
+    Extract structured content from captured HTML.
+
+    1. Load HTML from archive
+    2. Tag all blocks (nav/hero/main/footer)
+    3. Extract text from each block
+    4. Run trafilatura for main content
+    5. Enrich asset inventory with context
+    6. Return structured extraction
+    """
+```
+
+Key change: extraction KEEPS all blocks, just tags them.
+Current code strips nav/footer. New code tags them as such.
+
+
+Phase 3: Update crawl.py
+------------------------
+Current flow:
+```python
+for url in queue:
+    result = fetch_source(url)      # Fetch + extract in one
+    pages.append(process(result))
+```
+
+New flow:
+```python
+for url in queue:
+    capture = capture_page(url, capture_config, archive_dir)
+    extraction = extract_from_capture(capture, extract_config)
+    pages.append(merge(capture, extraction))
+```
+
+Estimated changes to crawl.py:
+- Remove inline extraction logic (~200 lines)
+- Add capture/extract calls (~50 lines)
+- Update page_data structure (~50 lines)
+- Net: simpler, cleaner separation
+
+
+===============================================================================
+PART 4: FILE-BY-FILE CHANGES
+===============================================================================
+
+New Files
+---------
+| File | Purpose |
+|------|---------|
+| fetch/capture.py | Page capture + asset inventory |
+| fetch/capture_config.py | Capture configuration |
+| fetch/lazy_expander.py | Scroll/click to expand lazy content |
+
+Modified Files
+--------------
+| File | Changes |
+|------|---------|
+| fetch/extractor.py | Add capture-based extraction, stop stripping |
+| fetch/fullpage.py | Enhance block tagging |
+| fetch/config.py | Add CaptureConfig |
+| scripts/crawl.py | Use new capture→extract pipeline |
+
+Unchanged Files
+---------------
+| File | Reason |
+|------|--------|
+| fetch/recon.py | Still needed for strategy selection |
+| fetch/strategy_cache.py | Still needed |
+| fetch/cookies.py | Still needed |
+| fetch/monkey.py | Still needed for blocked sites |
+| fetch/human.py | Still needed for monkey |
+| fetch/fetcher.py | Still used by capture.py internally |
+
+
+===============================================================================
+PART 5: IMPLEMENTATION ORDER
+===============================================================================
+
+1. **fetch/capture_config.py** - New dataclass, no dependencies
+2. **fetch/lazy_expander.py** - Scroll/accordion expansion logic
+3. **fetch/capture.py** - Capture pipeline, uses existing fetcher
+4. **fetch/extractor.py** - Add tag-don't-strip mode
+5. **scripts/crawl.py** - Wire new pipeline with `--capture-mode` flag
+6. **Tests** - Capture tests, extraction tests
+7. **Default flip** - Make capture mode the default
+
+Feature flag approach:
+```bash
+# Old behavior (default initially)
+python scripts/crawl.py --domain example.com
+
+# New behavior (opt-in, then becomes default)
+python scripts/crawl.py --domain example.com --capture-mode
+```
+
+
+===============================================================================
+PART 6: SUCCESS CRITERIA
+===============================================================================
+
+Capture Phase
+-------------
+- [ ] HTML saved (complete rendered state)
+- [ ] Lazy content expanded before save
+- [ ] Asset inventory complete (all img/doc/video URLs)
+- [ ] Asset metadata captured (alt text, dimensions, link text)
+- [ ] Screenshots taken (optional)
+- [ ] Manifest written (index of capture)
+
+Extraction Phase
+----------------
+- [ ] Main content extracted (trafilatura)
+- [ ] Nav/header/footer tagged and KEPT (not stripped)
+- [ ] Assets enriched with context (which block, surrounding text)
+- [ ] Structured data extracted (JSON-LD, OG)
+- [ ] Links categorized (nav/content/external/document)
+- [ ] Extraction reproducible from archived HTML
+
+Presentation
+------------
+- [ ] Site JSON has clean extracted text
+- [ ] Site JSON has tagged boilerplate (accessible, flagged)
+- [ ] Site JSON has asset inventory with context
+- [ ] Site JSON links to raw HTML archive
+
+
+===============================================================================
+PART 7: STORAGE & PERFORMANCE
+===============================================================================
+
+Storage Impact
+--------------
+| Content | Size per page | Notes |
+|---------|---------------|-------|
+| HTML | 50-500 KB | Rendered state |
+| Screenshot | 100-300 KB | Optional, PNG |
+| Extraction JSON | 10-50 KB | Text + metadata |
+| Manifest | 1-5 KB | Index |
+
+Per-site estimate: 5-50 MB (depending on page count)
+Much smaller than downloading assets (which could be 500MB+)
+
+Re-crawl Behavior
+-----------------
+- HTML: overwrite with new version
+- Screenshots: overwrite
+- Old extractions: keep for diff/comparison (optional)
+- No asset accumulation (we don't download assets)
+
+
+===============================================================================
+PART 8: IMPLEMENTATION NOTES
+===============================================================================
+
+From current architecture review:
+1. **Feature flag first**: add `--capture-mode` without removing existing path
+2. **Keep archive layout stable**: deterministic filenames + manifest
+3. **Minimize crawl.py churn**: route logic into capture.py and extract.py
+4. **Preserve provenance**: write content_hash, crawl_timestamp everywhere
+5. **Wait as long as needed**: lazy expansion shouldn't have tight timeouts
+
+Best practices:
+- Treat HTML archive as source of truth for extraction
+- Tag, don't strip - label content types, keep everything
+- Stable schemas - version corpus_version in site JSON
+- Extraction is a view - can always re-run on archived HTML
+
+
+===============================================================================
+APPENDIX: EXAMPLE CAPTURE OUTPUT
+===============================================================================
+
+```
+corpus/raw/schneider.com/
+├── manifest.json
+├── pages/
+│   ├── index.html
+│   ├── about.html
+│   ├── services_truckload.html
+│   └── contact.html
+└── screenshots/
+    ├── index.png
+    ├── about.png
+    ├── services_truckload.png
+    └── contact.png
+
+manifest.json:
+{
+  "domain": "schneider.com",
+  "captured": "2026-01-26T12:00:00Z",
+  "corpus_version": 2,
+  "pages": [
+    {
+      "url": "https://schneider.com/",
+      "html_path": "pages/index.html",
+      "screenshot_path": "screenshots/index.png",
+      "captured_at": "2026-01-26T12:00:05Z",
+      "fetch_method": "playwright",
+      "content_hash": "abc123..."
+    }
+  ],
+  "assets": [
+    {
+      "url": "https://schneider.com/images/logo.png",
+      "type": "image",
+      "alt": "Schneider National Logo",
+      "dimensions": [200, 80],
+      "found_on": ["pages/index.html", "pages/about.html"]
+    },
+    {
+      "url": "https://schneider.com/images/hero-truck.jpg",
+      "type": "image",
+      "alt": "Schneider truck on highway",
+      "dimensions": [1920, 800],
+      "found_on": ["pages/index.html"]
+    },
+    {
+      "url": "https://schneider.com/docs/carrier-packet.pdf",
+      "type": "document",
+      "link_text": "Download Carrier Packet",
+      "found_on": ["pages/contact.html"]
+    }
+  ],
+  "stats": {
+    "pages": 4,
+    "images": 12,
+    "documents": 2,
+    "total_html_kb": 450
+  }
+}
+```
+
+
+===============================================================================
+APPENDIX: EXAMPLE EXTRACTION OUTPUT
+===============================================================================
+
+```
+corpus/extracted/schneider.com/index.json:
+{
+  "url": "https://schneider.com/",
+  "title": "Schneider National - Trucking & Logistics",
+  "captured": "2026-01-26T12:00:00Z",
+  "extracted": "2026-01-26T12:05:00Z",
+  "content_hash": "abc123...",
+
+  "main_content": {
+    "text": "Schneider National is a premier provider of truckload, intermodal and logistics services...",
+    "word_count": 856,
+    "method": "trafilatura",
+    "confidence": 0.92
+  },
+
+  "tagged_blocks": [
+    {
+      "type": "nav",
+      "text": "Home Services About Careers Contact",
+      "word_count": 5,
+      "links": [
+        {"text": "Services", "url": "/services"},
+        {"text": "About", "url": "/about"},
+        {"text": "Careers", "url": "/careers"},
+        {"text": "Contact", "url": "/contact"}
+      ]
+    },
+    {
+      "type": "hero",
+      "text": "Moving freight forward with innovation and reliability",
+      "word_count": 8,
+      "images": [
+        {
+          "url": "https://schneider.com/images/hero-truck.jpg",
+          "alt": "Schneider truck on highway",
+          "classification": "hero_image"
+        }
+      ]
+    },
+    {
+      "type": "main",
+      "text": "Schneider National is a premier provider of truckload...",
+      "word_count": 856,
+      "headings": [
+        {"level": 1, "text": "Your Trusted Partner in Freight"},
+        {"level": 2, "text": "Our Services"},
+        {"level": 2, "text": "Why Choose Schneider"}
+      ]
+    },
+    {
+      "type": "footer",
+      "text": "Copyright 2026 Schneider National. Privacy Policy. Terms of Use.",
+      "word_count": 9,
+      "links": [
+        {"text": "Privacy Policy", "url": "/privacy"},
+        {"text": "Terms of Use", "url": "/terms"}
+      ]
+    }
+  ],
+
+  "images": [
+    {
+      "url": "https://schneider.com/images/hero-truck.jpg",
+      "alt": "Schneider truck on highway",
+      "block": "hero",
+      "context": "Hero section, above main content",
+      "classification": "hero_image",
+      "dimensions": [1920, 800]
+    },
+    {
+      "url": "https://schneider.com/images/logo.png",
+      "alt": "Schneider National Logo",
+      "block": "nav",
+      "context": "Site header",
+      "classification": "logo",
+      "dimensions": [200, 80]
+    }
+  ],
+
+  "documents": [
+    {
+      "url": "https://schneider.com/docs/carrier-packet.pdf",
+      "link_text": "Download Carrier Packet",
+      "block": "main",
+      "context": "In 'Become a Carrier' section"
+    }
+  ],
+
+  "structured_data": {
+    "json_ld": {
+      "@type": "Organization",
+      "name": "Schneider National",
+      "url": "https://schneider.com"
+    },
+    "open_graph": {
+      "title": "Schneider National",
+      "description": "Premier trucking and logistics",
+      "image": "https://schneider.com/images/og-image.jpg"
+    }
+  },
+
+  "links": {
+    "nav": [
+      {"text": "Services", "url": "https://schneider.com/services"},
+      {"text": "About", "url": "https://schneider.com/about"}
+    ],
+    "content": [
+      {"text": "Learn more about truckload", "url": "https://schneider.com/services/truckload"},
+      {"text": "Get a quote", "url": "https://schneider.com/quote"}
+    ],
+    "external": [
+      {"text": "DOT Safety Rating", "url": "https://safer.fmcsa.dot.gov/..."}
+    ],
+    "documents": [
+      {"text": "Download Carrier Packet", "url": "https://schneider.com/docs/carrier-packet.pdf"}
+    ]
+  },
+
+  "archive": {
+    "html": "corpus/raw/schneider.com/pages/index.html",
+    "screenshot": "corpus/raw/schneider.com/screenshots/index.png"
+  }
+}
+```

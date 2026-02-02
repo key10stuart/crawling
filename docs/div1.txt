@@ -1,0 +1,362 @@
+Implementation Plan: Core-Model-Guided Crawling (Div 1)
+========================================================
+
+Goal
+----
+Use the extracted “core model” of a site (nav, hero, sections, features) to
+steer crawling decisions and reduce noise, while still capturing full content.
+
+Intent Alignment (Core Requirement)
+-----------------------------------
+This plan is bound to the core intent: capture **ALL** text, images, and code,
+reliably tagged, with a target success rate of ~99%. That includes both main
+content and structural/UI content (nav, footer, tabs, accordions, selectors).
+
+Principle
+---------
+Build a lightweight site model from the homepage and early pages, then use it
+as a guide for link priority, section coverage, and content capture.
+
+
+Phase 1 — Site Core Model (Homepage + Key Pages)
+-----------------------------------------------
+1) **Homepage structured extraction**
+   - Use `extract_full_page()` to capture nav, hero text, key CTA labels.
+   - Capture primary nav links and categorize by label (Shippers, Carriers,
+     Solutions, Industries, Technology, Resources, Company, Investors).
+
+2) **Core model object**
+   - Build a `SiteCore` object:
+     - `nav_sections`: list of nav labels + URLs
+     - `hero_ctas`: CTA text + URLs
+     - `features`: portals/integrations/api hints
+     - `site_type_hints`: counts of nav labels by category
+
+3) **Store in crawl output**
+   - Add `site_core` to site JSON.
+   - Add `page_core` to homepage page JSON (nav + hero + CTA summary).
+
+
+Phase 2 — Priority Queue (Guided BFS)
+-------------------------------------
+1) **Priority scoring for URLs**
+   Score by label + path patterns:
+   - High priority: /solutions, /services, /technology, /industries
+   - Medium: /resources, /blog, /news, /case-study
+   - Low: /privacy, /terms, /accessibility
+
+2) **Nav-first queue**
+   - Seed nav links at depth 1 with high priority.
+   - Keep BFS within each nav category before deep‑diving.
+
+3) **Section coverage tracking**
+   - Track coverage of each nav category.
+   - Stop when each nav category has ≥ N pages (configurable).
+
+
+Phase 3 — Structured Capture (Beyond Text)
+-----------------------------------------
+1) **Two‑track extraction**
+   - `main_content` (trafilatura) for copy.
+   - `structural_content` (full page) for nav/footer/tabs/accordion labels.
+
+2) **UI structure capture**
+   - For tabs/accordions: capture labels + body text (when revealed).
+   - For nav/footer: capture label text + URLs as separate blocks.
+
+3) **Tagging + grouping**
+   - Add block types: `nav_block`, `footer_block`, `ui_block`.
+   - Store in section_tree under labeled top sections.
+
+
+Phase 4 — Search/Discovery Improvements
+---------------------------------------
+1) **Feature-driven crawl**
+   - If `carrier_portal` detected: crawl that subtree lightly (depth+1).
+   - If `tracking` detected: crawl tracking docs + API hints.
+
+2) **Path-based throttling**
+   - Rate-limit deep paths (e.g., /privacy, /legal).
+   - Deduplicate query variants early.
+
+3) **Change detection**
+   - Hash each page’s extracted content.
+   - Skip or lower priority if duplicate content is found.
+
+
+Phase 5 — Evaluation & Quality
+------------------------------
+1) **Coverage metrics**
+   - % nav categories covered
+   - Avg word count per category
+   - Presence of key features (tracking, portals)
+
+2) **Noise metrics**
+   - Boilerplate ratio
+   - Duplicate block count
+
+3) **Success criteria**
+   - ≥ 99% pages with usable text
+   - ≥ 90% nav categories represented for each carrier
+   - Clear separation of main vs structural content
+
+
+Deliverables (Div 1)
+--------------------
+- `SiteCore` structure in site JSON
+- Priority queue logic in `crawl.py`
+- Labeled section_tree blocks for nav/footer/UI
+- Coverage + noise stats in site summary
+
+
+Implementation Progress (2026-01-25)
+------------------------------------
+Phase 1:
+  ✓ `extract_full_page()` in fetch/fullpage.py — captures nav, hero, footer
+  ✓ Nav links extracted (41 links on Schneider homepage)
+  ✓ Stored in page_data: `nav_links`, `hero_text`
+  ✓ Nav coverage tracking via profiles (see below)
+  ⚠️ TODO: Formalize `SiteCore` object (partially done via profile system)
+
+Phase 2:
+  ✓ Nav-first queue — `queue.appendleft()` for nav links (priority)
+  ✓ Priority scoring by path patterns (via profile system)
+  ✓ Nav coverage tracking (expected vs found sections)
+  ⚠️ TODO: Stop-when-covered logic (N pages per category)
+
+Phase 3:
+  ✓ Two-track extraction: `full_text` (comprehensive) + `main_content` (trafilatura)
+  ⚠️ TODO: Block tagging (nav_block, footer_block, ui_block)
+
+Phase 4-5: Not started
+
+
+Domain-Specific Crawl Profiles — IMPLEMENTED
+--------------------------------------------
+Decision: Went with option (1) — explicit YAML config files. Auto-detect was
+deemed too brittle. User specifies profile via `--profile` flag.
+
+Files created:
+  profiles/
+  ├── trucking.yaml   # Trucking carriers (services, modes, tracking)
+  ├── generic.yaml    # Fallback for unknown sites
+  ├── tech.yaml       # Tech/developer sites (products, docs, APIs)
+  └── nvidia.yaml     # NVIDIA-specific with 7 products defined
+
+Profile loader: fetch/profile.py
+  - load_profile(name) → CrawlProfile
+  - score_url_priority(path, profile) → "high" | "medium" | "low" | "normal"
+  - check_nav_coverage(nav_labels, profile) → coverage stats
+  - check_product_coverage(pages, profile) → product coverage stats
+  - match_product(path, text, profile) → product name or None
+
+CLI integration:
+  python scripts/crawl.py --domain nvidia.com --profile nvidia
+  python scripts/crawl.py --domain schneider.com --profile trucking
+
+Profile schema:
+  ```yaml
+  name: trucking
+  priority:
+    high: [/services, /carriers, /tracking, ...]
+    medium: [/blog, /resources, ...]
+    low: [/privacy, /careers, ...]
+  expected_nav_sections: [services, carriers, shippers, technology, ...]
+  products: []  # Optional, for product-focused profiles
+  features_of_interest: [portal, tracking, EDI, TMS, API]
+  industry_terms: [intermodal, truckload, ltl, ...]
+  settings:
+    max_depth: 2
+    max_pages: 100
+  ```
+
+Product tracking (for tech profiles like nvidia.yaml):
+  ```yaml
+  products:
+    - name: "GeForce RTX"
+      description: "Consumer gaming GPUs"
+      patterns: [/geforce, /rtx, /gaming]
+      terms: [geforce, rtx, dlss, ray tracing]
+      page_types: [product, specs, comparison]
+
+    - name: "CUDA"
+      patterns: [/cuda, /developer/cuda]
+      terms: [cuda, parallel computing, gpu computing]
+      # ... etc
+  ```
+
+Output now includes:
+  - `profile`: name of profile used
+  - `nav_coverage`: { expected, found, missing, coverage }
+  - `product_coverage`: { products, coverage per product, overall_coverage }
+  - Per-page `product` field: which product the page belongs to (or null)
+
+Example output:
+  ```json
+  {
+    "profile": "nvidia",
+    "nav_coverage": {
+      "expected": ["products", "developers", "docs", ...],
+      "found": ["products", "developers"],
+      "missing": ["docs"],
+      "coverage": 0.67
+    },
+    "product_coverage": {
+      "overall_coverage": 0.43,
+      "covered_count": 3,
+      "total_products": 7,
+      "coverage": {
+        "GeForce RTX": {
+          "covered": true,
+          "pages_found": [{"path": "/geforce/rtx-4090", ...}],
+          "terms_found": ["rtx", "dlss", "ray tracing"]
+        },
+        "CUDA": { "covered": true, ... },
+        "TensorRT": { "covered": false, ... }
+      }
+    },
+    "pages": [
+      { "path": "/geforce/rtx-4090", "product": "GeForce RTX", ... },
+      { "path": "/about", "product": null, ... }
+    ]
+  }
+  ```
+
+Benefits realized:
+  ✓ Crawl guided by domain knowledge (high-priority paths first)
+  ✓ Coverage metrics against expected nav sections
+  ✓ Product-level coverage tracking for tech sites
+  ✓ Each page tagged with its product (enables product-centric analysis)
+  ✓ Low-priority paths skipped (reduces noise)
+  ✓ Explicit config = predictable, debuggable, versionable
+
+
+Remaining TODOs
+---------------
+- [ ] `SiteCore` object formalization (profiles serve similar purpose)
+- [x] Block tagging (nav_block, footer_block, ui_block) — DONE (Agent B, 2026-01-25)
+- [ ] Stop-when-covered logic (N pages per nav category)
+- [x] Feature-driven crawl (follow portal subtrees) — DONE (Agent B, 2026-01-25)
+- [ ] Change detection for priority adjustment
+
+
+Parallel Work Delegation (No File Collisions)
+--------------------------------------------
+Goal: complete remaining Div1 TODOs with two agents working in parallel.
+
+### Agent A (Codex) — Core crawling logic + outputs
+**Owned files (Codex only):**
+- `cyberspace/pt1/crawling/scripts/crawl.py`
+- `cyberspace/pt1/crawling/schema.py`
+- `cyberspace/pt1/crawling/docs/stateofplay.txt`
+
+**Tasks**
+1) Implement stop-when-covered logic (N pages per nav category).
+2) Add change-detection / duplicate-content suppression in crawl loop.
+3) Wire `site_core` formal object into site JSON (if needed beyond profile).
+
+### Agent B (Claude) — Structure tagging + profile helpers
+**Owned files (Claude only):**
+- `cyberspace/pt1/crawling/fetch/fullpage.py`
+- `cyberspace/pt1/crawling/fetch/profile.py`
+- `cyberspace/pt1/crawling/docs/div1.txt` (progress notes only)
+
+**Tasks**
+1) Block tagging: nav_block / footer_block / ui_block in section tree.
+2) Enhance profile scoring + nav label normalization.
+3) Feature-driven crawl hints (expose portal subtrees for optional crawl).
+
+### Shared Constraints
+- Do not edit each other’s owned files to avoid conflicts.
+- Use explicit interface contracts for any new data fields.
+
+Milestones
+----------
+**M1:** Stop-when-covered + block tagging shipped (separate PRs/patches).
+**M2:** Change-detection + profile improvements shipped.
+**M3:** Feature-driven crawl hints + final Div1 review.
+- [ ] Coverage/noise metrics in site summary
+
+
+Agent B Implementation Notes (2026-01-25)
+-----------------------------------------
+
+### 1. Block Tagging (fetch/fullpage.py)
+
+Added `TaggedBlock` dataclass and `tagged_blocks` field to `FullPageExtraction`:
+```python
+@dataclass
+class TaggedBlock:
+    block_type: str   # 'nav_block', 'footer_block', 'hero_block', 'main_block', 'ui_block'
+    content_type: str # 'link', 'text', 'heading', 'cta', 'image', 'list'
+    content: str
+    url: str = ''
+    level: int = 0
+    metadata: dict = field(default_factory=dict)
+```
+
+All extracted content is now tagged with its source region:
+- `nav_block`: Primary and utility navigation links
+- `hero_block`: Hero/banner section text
+- `main_block`: Main content (headings, text, images)
+- `ui_block`: Interactive elements (CTAs, buttons)
+- `footer_block`: Footer links and copyright text
+
+### 2. Profile Scoring Enhancements (fetch/profile.py)
+
+**Nav Label Normalization:**
+- `normalize_nav_label(label)`: Strips prefixes ("Our", "The", "View All") and suffixes ("Us", "Overview")
+- `get_canonical_nav_section(label)`: Maps variations to canonical names via synonyms
+  - "What We Do" → "services"
+  - "Who We Are" → "about"
+  - "The Company" → "about"
+
+**Improved `check_nav_coverage()`:**
+- Now uses 3-tier matching: direct → normalized → synonym
+- Returns `matches` dict showing which method matched each section
+
+**Numeric URL Scoring:**
+- `score_url_numeric(path, profile, depth)`: Returns 0-120 score for queue ordering
+- Factors: profile priority, depth penalty, path length, homepage bonus, noise penalties
+
+### 3. Feature-Driven Crawl Hints (fetch/profile.py)
+
+New `CrawlHint` dataclass and `detect_crawl_hints()` function:
+```python
+@dataclass
+class CrawlHint:
+    feature: str      # e.g., "portal", "tracking", "api_docs"
+    subtree: str      # URL path to explore
+    priority: str     # "high", "medium", "low"
+    reason: str       # Why hint was generated
+    depth_boost: int  # Extra crawl depth for this subtree
+```
+
+Detected features:
+- `portal`: Carrier/shipper/customer portals (+1 depth)
+- `tracking`: Shipment tracking systems (+1 depth)
+- `api_docs`: Developer documentation, APIs, SDKs (+2 depth)
+- `edi`: EDI integration pages (+1 depth)
+- `tms`: Transportation management system pages (+1 depth)
+- `pricing`: Quote/rate pages (no depth boost)
+
+Usage:
+```python
+from fetch.profile import detect_crawl_hints, hints_to_dict
+
+hints = detect_crawl_hints(page_links, page_text, profile)
+for hint in hints:
+    if hint.depth_boost > 0:
+        # Add hint.subtree to queue with extra depth allowance
+        pass
+```
+
+### Interface Contract for Agent A
+
+New fields available from fullpage extraction (via `extraction_to_dict()`):
+- `tagged_blocks`: List of `{block_type, content_type, content, url, level, metadata}`
+
+New functions in profile.py:
+- `score_url_numeric(path, profile, depth)` → int (for queue ordering)
+- `detect_crawl_hints(links, text, profile)` → list[CrawlHint]
+- `hints_to_dict(hints)` → list[dict] (for JSON serialization)

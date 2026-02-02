@@ -1,0 +1,181 @@
+# Better Crawling: Content Extraction Techniques
+# Research notes - 2026-01-18
+
+## The Core Problem
+
+Modern web crawling has two distinct challenges:
+1. Fetching rendered HTML (JS rendering via Playwright/Selenium)
+2. Extracting main content from HTML (boilerplate removal)
+
+We've been conflating these. The JS rendering works fine - the problem is
+extraction logic. Our hand-tuned CSS selectors in extract_content() are
+fighting against well-understood algorithms that have been refined for years.
+
+
+## Established Libraries (Benchmarked)
+
+ScrapingHub Article Extraction Benchmark results:
+
+| Library           | F1 Score | Precision | Recall |
+|-------------------|----------|-----------|--------|
+| trafilatura 2.0   | 0.958    | 0.938     | 0.978  |
+| newspaper4k 0.9   | 0.949    | 0.964     | 0.934  |
+| readability-lxml  | 0.922    | 0.913     | 0.931  |
+| newspaper3k 0.2   | 0.912    | 0.917     | 0.906  |
+
+Trafilatura wins overall. Readability has best median (most predictable).
+Newspaper3k is abandoned (last release 2018), use newspaper4k fork instead.
+
+
+## How These Algorithms Actually Work
+
+The techniques are heuristics-based, not ML. Core concepts:
+
+### 1. Text Density
+
+    text_density = len(text_in_node) / count(html_tags_in_node)
+
+Main content has HIGH text density - lots of words, few tags.
+Navigation has LOW text density - many <a>, <li> tags, little text each.
+
+### 2. Link Density
+
+    link_density = len(text_inside_links) / len(total_text_in_node)
+
+Navigation/footer = high link density (almost everything is a link)
+Article body = low link density (occasional inline links only)
+
+### 3. Tag Ratios (CETR Algorithm)
+
+Content Extraction via Tag Ratios - count text-to-tag ratio per DOM subtree.
+Content blocks have predictable ratios distinct from boilerplate.
+
+### 4. Positional Heuristics
+
+- Content clusters in middle of DOM tree depth
+- Boilerplate clusters at top (header) and bottom (footer)
+- Sidebars are siblings of main content, not ancestors/descendants
+
+### 5. Composite Scoring
+
+Combine signals: high text density + low link density + favorable position
+= likely main content. Trafilatura also falls back to readability and
+jusText algorithms when its primary approach yields poor results.
+
+
+## Minimal Implementation (~50 lines)
+
+If avoiding dependencies, the core insight is simple:
+
+    def extract_main_content(soup):
+        candidates = []
+        for node in soup.find_all(['div', 'section', 'article', 'main']):
+            text = node.get_text(strip=True)
+            tags = len(node.find_all())
+            links = node.find_all('a')
+
+            if tags == 0 or len(text) < 50:
+                continue
+
+            text_density = len(text) / (tags + 1)
+            link_text = sum(len(a.get_text()) for a in links)
+            link_density = link_text / (len(text) + 1)
+
+            # Content: high text density, low link density
+            score = text_density * (1 - link_density)
+            candidates.append((score, node))
+
+        if candidates:
+            return max(candidates, key=lambda x: x[0])[1]
+        return soup.body
+
+This alone beats hand-tuned tag stripping. The key is SCORING candidates
+rather than FILTERING by tag names/classes.
+
+
+## What Big AI Labs Actually Do
+
+They don't do sophisticated extraction. They brute-force with scale.
+
+### Common Crawl Pipeline
+
+- GPT-3/4: 80%+ of training tokens from Common Crawl
+- Raw HTML, minimally processed
+- Philosophy: "bad extraction at petabyte scale averages out"
+
+### Google's C4 (Colossal Clean Crawled Corpus)
+
+Filtered Common Crawl with basic rules:
+- Remove pages with excessive punctuation
+- Remove pages where words-per-line ratio is abnormal
+- Deduplicate spans of 3+ sentences
+- Keep only pages with language detection score > 0.99
+- Result: ~750GB of English text for T5 training
+
+### Key Insight
+
+Labs don't carefully extract content from each page. They:
+1. Take massive raw crawl data
+2. Apply coarse quality filters
+3. Deduplicate aggressively
+4. Trust that volume compensates for noise
+
+For a targeted corpus (like our trucking carriers), we need better
+extraction than they do - we can't rely on scale to average out errors.
+
+
+## Recommendations for Our Crawler
+
+### Option A: Use Trafilatura (Recommended)
+
+    pip install trafilatura
+
+    import trafilatura
+    text = trafilatura.extract(html, include_comments=False)
+
+Replaces entire extract_content() function. Battle-tested, maintained.
+
+### Option B: Implement Density Scoring
+
+Replace our tag-stripping approach with the scoring approach above.
+Keep BeautifulSoup dependency we already have, no new deps.
+
+Changes to crawl.py:
+- Remove STRIP_TAGS, STRIP_CLASSES (scoring handles this implicitly)
+- Score all container nodes by text_density * (1 - link_density)
+- Extract text from highest-scoring node
+- Keep metadata extraction (title, h1, meta_description) as-is
+
+### Option C: Hybrid
+
+Use our current approach for server-rendered sites (working fine).
+Add trafilatura as fallback when word count < threshold.
+
+    content = extract_content(html, url)
+    if content['word_count'] < 100:
+        content['full_text'] = trafilatura.extract(html) or ''
+        content['word_count'] = len(content['full_text'].split())
+
+
+## Testing Plan
+
+1. Check raw HTML in corpus/raw/jbhunt.com/ - verify Playwright captured content
+2. Run trafilatura on same HTML files, compare word counts
+3. If trafilatura succeeds, either adopt it or port its logic
+4. Re-crawl jbhunt.com with improved extraction
+
+
+## References
+
+Papers:
+- "DOM-based Content Extraction via Text Density" (Sun et al., 2011)
+- "Content Extraction via Tag Ratios" (Weninger et al., 2010)
+- "Trafilatura: A Web Scraping Library" (Barbaresi, 2021) - ACL Anthology
+
+Benchmarks:
+- ScrapingHub article-extraction-benchmark (GitHub)
+- CleanEval benchmark
+
+Documentation:
+- https://trafilatura.readthedocs.io/en/latest/evaluation.html
+- https://github.com/adbar/trafilatura
