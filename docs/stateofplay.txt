@@ -1,5 +1,5 @@
 # Crawling Service - State of Play
-# Updated: 2026-01-27
+# Updated: 2026-02-07
 
 ## Summary
 
@@ -16,7 +16,6 @@ Completed:
 
 Remaining:
 - Full tier crawls to verify extraction quality
-- Downstream tool fixes (render_extraction.py, export.py)
 - SLO measurement after corpus populated
 
 **Reality check**: Only 6.1% access success rate. Most domains need crawling or are blocked.
@@ -35,7 +34,7 @@ python scripts/access_report.py
 # Run smoke tests
 python tests/t1.py   # --help
 python tests/t6.py   # access report
-python tests/t8.py   # pytest (32 tests)
+python tests/t8.py   # pytest (33 tests)
 
 # Process blocked sites manually
 python scripts/monkey.py --next
@@ -96,7 +95,7 @@ Architecture is done:
 Testing/verification needed:
 - [ ] Full tier-1 Docker crawl (t9)
 - [ ] Verify SPA sites extract correctly (saia, etc.)
-- [ ] Fix downstream tools (render_extraction.py, export.py)
+- [x] Fix downstream tools (render_extraction.py, export.py)
 - [ ] Measure SLOs after corpus populated
 - [ ] Final QA sweep per div4k Part 5
 
@@ -111,9 +110,9 @@ Orchestrator refactor DONE:
 
 QA validation IN PROGRESS:
 - [x] Smoke tests created (tests/t1.py through t8.py)
-- [x] T1, T6, T8 passing
-- [ ] T2-T5, T7 need live crawls / GUI / Docker
-- [ ] Downstream tool fixes needed (render_extraction.py, export.py)
+- [x] T1, T2, T3, T4, T6, T7, T8 passing (2026-02-07)
+- [ ] T5 pending environment (Docker availability)
+- [x] Downstream tool fixes landed (render_extraction.py, export.py)
 - [ ] Full tier crawl to measure SLOs
 
 See docs/div4k.txt for detailed test matrix and issues.
@@ -136,12 +135,11 @@ Knight-swift.com blocked by StackPath CAPTCHA.
 
 ## Known Issues (for Agent 1)
 
-1. **render_extraction.py line 80**: TypeError - expects `page['main_content']`
-   as string but capture mode gives dict `{text, word_count, method}`
+1. **Adaptive access loop still open-loop**: blocked/soft-block pages can still be
+   counted as technical capture without strategy escalation feedback (tracked in
+   `docs/div4k1.md`).
 
-2. **export.py**: Shows Words: 0 for capture mode sites (word count location differs)
-
-3. **Execution log warning**: 'total_word_count' key error (minor)
+2. **Execution log warning**: `'total_word_count'` key error (minor, intermittent).
 
 
 ## Quick Reference
@@ -163,8 +161,8 @@ python scripts/access_report.py
 python scripts/monkey.py --list
 python scripts/monkey.py --next
 
-# Run all smoke tests
-for i in 1 6 8; do python tests/t$i.py; done
+# Run smoke tests
+for i in 1 2 3 4 6 7 8; do python tests/t$i.py; done
 
 # Run pytest
 pytest tests/test_capture.py tests/test_extraction.py -v
@@ -182,8 +180,8 @@ scripts/
 ├── access_report.py      # SLO metrics
 ├── monkey.py             # Human-in-loop CLI
 ├── eval_extraction.py    # Auto-evaluate extractions
-├── render_extraction.py  # HTML reports (needs fix)
-└── export.py             # Data export (needs fix)
+├── render_extraction.py  # HTML reports (capture-mode compatible)
+└── export.py             # Data export (capture-mode compatible)
 
 orchestrate/
 ├── config.py             # load_seeds, load_run_config, freshness
@@ -206,7 +204,7 @@ docs/
 ## Next Steps
 
 1. **Run full tier-1 crawl** with GUI user (Playwright access)
-2. **Fix downstream tools** (render_extraction.py, export.py)
+2. **Retest remaining downstream tools** (`comp_packages_report.py`, `human_eval.py`)
 3. **Measure SLOs** after crawl data exists
 4. **Process monkey queue** for blocked sites (knight-swift, etc.)
 5. **Complete T2-T7** smoke tests with live data

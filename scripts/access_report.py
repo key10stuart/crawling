@@ -99,6 +99,7 @@ def analyze_access() -> dict:
     # Track metrics
     by_tier = defaultdict(lambda: {"success": 0, "failed": 0, "blocked": 0, "total": 0})
     by_method = Counter()
+    outcome_counts = Counter()
     blocked_domains = []
     freshness = {"fresh": 0, "stale": 0, "missing": 0}
     escalations = Counter()
@@ -146,8 +147,13 @@ def analyze_access() -> dict:
             reason = access.get("notes", "unknown")
             blocked_domains.append((base_domain, reason, tier, name))
 
+        # Div 4k1 telemetry (capture-mode)
+        access_summary = site_data.get("access_summary", {})
+        for outcome, count in (access_summary.get("outcome_counts") or {}).items():
+            outcome_counts[outcome] += count
+
         # Track method used
-        method = access.get("strategy", "unknown")
+        method = access.get("strategy") or site_data.get("fetch_method") or "unknown"
         by_method[method] += 1
 
         # Track escalations
@@ -170,6 +176,7 @@ def analyze_access() -> dict:
         "blocked_domains": blocked_domains,
         "freshness": freshness,
         "escalations": dict(escalations),
+        "outcome_counts": dict(outcome_counts),
         "word_counts": word_counts,
         "page_counts": page_counts,
         "total_carriers": len(carriers),
@@ -217,6 +224,19 @@ def compute_metrics(analysis: dict) -> dict:
     if analysis["page_counts"]:
         metrics["avg_pages"] = sum(analysis["page_counts"]) / len(analysis["page_counts"])
 
+    # Div 4k1 access outcome metrics
+    outcomes = analysis.get("outcome_counts", {})
+    total_outcomes = sum(outcomes.values())
+    if total_outcomes > 0:
+        success = outcomes.get("success_real_content", 0)
+        soft_block = outcomes.get("soft_block", 0)
+        hard_block = outcomes.get("hard_block", 0)
+        challenge = outcomes.get("challenge_not_cleared", 0)
+        metrics["access_effective_success_rate"] = success / total_outcomes
+        metrics["soft_block_rate"] = soft_block / total_outcomes
+        metrics["hard_block_rate"] = hard_block / total_outcomes
+        metrics["challenge_not_cleared_rate"] = challenge / total_outcomes
+
     return metrics
 
 
@@ -256,6 +276,16 @@ def format_report(analysis: dict, metrics: dict, tier_filter: int | None = None)
         pct = count / sum(analysis["by_method"].values()) if analysis["by_method"] else 0
         lines.append(f"  {method:20} {count:4} ({pct:.1%})")
     lines.append("")
+
+    # Access outcomes (Div 4k1)
+    outcomes = analysis.get("outcome_counts", {})
+    if outcomes:
+        lines.append("ACCESS OUTCOMES")
+        lines.append("-" * 40)
+        total_outcomes = sum(outcomes.values()) or 1
+        for outcome, count in sorted(outcomes.items(), key=lambda x: -x[1]):
+            lines.append(f"  {outcome:24} {count:4} ({count/total_outcomes:.1%})")
+        lines.append("")
 
     # Escalations
     if analysis["escalations"]:

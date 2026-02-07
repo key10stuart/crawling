@@ -15,7 +15,13 @@ from fetch.capture import (
     inventory_assets,
     write_manifest,
 )
-from fetch.capture_config import AssetRef, CaptureConfig, CaptureResult
+from fetch.capture_config import (
+    AccessAttempt,
+    AccessOutcome,
+    AssetRef,
+    CaptureConfig,
+    CaptureResult,
+)
 
 
 class TestHashContent:
@@ -367,6 +373,103 @@ class TestWriteManifest:
             assert data["stats"]["images"] == 2
             assert data["stats"]["documents"] == 1
             assert data["stats"]["total_html_kb"] == 2  # 2048 bytes = 2 KB
+
+    def test_handles_redirected_subdomain_paths(self):
+        """Should not crash when capture files land under a different host folder."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            archive_dir = Path(tmpdir)
+            domain = "cloud.google.com"
+
+            # Simulate redirect from cloud.google.com -> docs.cloud.google.com
+            pages_dir = archive_dir / "docs.cloud.google.com" / "pages"
+            pages_dir.mkdir(parents=True)
+            html_path = pages_dir / "overview.html"
+            html_path.write_text("<html></html>")
+
+            captures = [
+                CaptureResult(
+                    url="https://cloud.google.com/",
+                    final_url="https://docs.cloud.google.com/",
+                    html_path=html_path,
+                    screenshot_path=None,
+                    asset_inventory=[
+                        AssetRef(url="https://docs.cloud.google.com/logo.png", asset_type="image"),
+                    ],
+                    manifest_path=archive_dir / domain / "manifest.json",
+                    content_hash="abc123",
+                    captured_at="2024-01-01T00:00:00Z",
+                    fetch_method="requests",
+                    timing=None,
+                    headers={},
+                    cookies=[],
+                    html_size_bytes=100,
+                    error=None,
+                ),
+            ]
+
+            manifest_path = write_manifest(domain, archive_dir, captures)
+            with open(manifest_path) as f:
+                data = json.load(f)
+
+            assert len(data["pages"]) == 1
+            assert data["pages"][0]["html_path"] == "docs.cloud.google.com/pages/overview.html"
+            assert data["assets"][0]["found_on"] == ["docs.cloud.google.com/pages/overview.html"]
+
+    def test_manifest_includes_access_outcomes_and_attempts(self):
+        """Should persist per-page access outcome and attempt telemetry."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            archive_dir = Path(tmpdir)
+            domain = "example.com"
+
+            pages_dir = archive_dir / domain / "pages"
+            pages_dir.mkdir(parents=True)
+            html_path = pages_dir / "index.html"
+            html_path.write_text("<html></html>")
+
+            outcome = AccessOutcome(
+                outcome="success_real_content",
+                reason="content_captured",
+                http_status=200,
+                word_count_estimate=12,
+                final_url="https://example.com/",
+            )
+            attempt = AccessAttempt(
+                attempt_index=1,
+                strategy="requests",
+                started_at="2024-01-01T00:00:00Z",
+                duration_ms=100,
+                outcome=outcome,
+                capture_error=None,
+                html_size_bytes=100,
+            )
+
+            captures = [
+                CaptureResult(
+                    url="https://example.com/",
+                    final_url="https://example.com/",
+                    html_path=html_path,
+                    screenshot_path=None,
+                    asset_inventory=[],
+                    manifest_path=archive_dir / domain / "manifest.json",
+                    content_hash="abc123",
+                    captured_at="2024-01-01T00:00:00Z",
+                    fetch_method="requests",
+                    timing=None,
+                    headers={},
+                    cookies=[],
+                    html_size_bytes=100,
+                    error=None,
+                    access_outcome=outcome,
+                    attempts=[attempt],
+                ),
+            ]
+
+            manifest_path = write_manifest(domain, archive_dir, captures)
+            data = json.loads(manifest_path.read_text())
+            page = data["pages"][0]
+
+            assert page["final_access_outcome"]["outcome"] == "success_real_content"
+            assert page["attempts"][0]["strategy"] == "requests"
 
 
 class TestCaptureConfig:

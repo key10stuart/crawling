@@ -1,43 +1,77 @@
 # Crawling Docs Index
 
-Short guide to the docs in this folder and what each one is for.
+Guide to documentation in this folder.
+
+## Current State
 
 - `stateofplay.txt`
-  Timeline-style status log: what’s working, recent integrations (fetch, interactive, features),
-  current debugging focus, and concrete next steps. Includes batch test results and crawl stats.
+  Current system status, what works, known issues, next steps. Start here.
+
+- `actof.md`
+  Famous crawler references + project ethos for building a top-tier, scrappy system.
 
 - `model_understanding_of_core_intent.txt`
-  Canonical statement of intent: build a structured corpus with *all* text/images/code, tagged
-  and reliable, plus site capabilities and provenance. Target success rate ~99%.
+  Core intent: capture ALL text/images/code, tagged and reliable, ~99% success.
 
-- `div1.txt`
-  Implementation plan for “core-model-guided crawling”: SiteCore object, nav/category coverage,
-  priority queue rules, UI structure capture, and evaluation metrics. Includes progress notes.
+## Operational Guides
 
-- `fetch_proposal.txt`
-  Design for unified fetch+extract: requests→Playwright→stealth, trafilatura→readability→density,
-  quality gates, hashing/archiving, confidence scoring, and integration path into crawl.py/oc.
+- `access_runbook.md`
+  How to run crawls, handle blocked sites, process monkey queue. Commands that work.
 
-- `interactive_crawling.md`
-  Interaction layer design: ordered UI actions (accordions/tabs/load-more), stop conditions,
-  delta detection, anti‑bot constraints, and page-type heuristics. Includes implementation notes.
+- `access_slos.md`
+  Service level objectives and thresholds for access layer health.
 
-- `interactive_crawling_sprint.md`
-  Sprint plan with parallel agent ownership, interface contract, milestones, and testing strategy
-  for the interactive layer.
+- `docker_crawling.md`
+  Running crawls in Docker containers (headless and Xvfb modes).
 
-- `bettercrawling.txt`
-  Research notes on extraction methods (density/link ratios, tag ratios), benchmarks, and the
-  “what big labs do vs what we need” rationale. Practical recommendations for this crawler.
+- `human_eval_guide.md`
+  How to run human evaluation on extraction quality.
 
-- `lit.txt`
-  Literature + pro-grade extraction checklist: papers, tools, benchmarks, failure modes,
-  and production pipeline recommendations.
+- `monkey_integration.md`
+  How the monkey (human-in-loop) system integrates with the crawler.
 
-- `notes.txt`
-  Development log with early crawl experiments (e.g., jbhunt.com failures), fixes applied,
-  and key findings.
+## Implementation Plans (Div Series)
 
-- `suggestion.txt`
-  Full architecture proposal: greedy extraction layer → transform layer → structured object
-  model (Text/Image/Code blocks), quality signals, navigation APIs, and future file layout.
+Historical implementation plans. Status markers may be stale — check `stateofplay.txt` for current state.
+
+| Doc | Focus |
+|-----|-------|
+| `div1.txt` | Core crawl pipeline, profiles, nav coverage |
+| `div2.txt` | Sitemap, robots.txt, structured data, exports |
+| `div3.txt` | Compensation packages monitoring |
+| `div4.txt` | Universal access layer (main vision doc) |
+| `div4a.txt` | Per-site config, recon, cookies |
+| `div4b.txt` | Playbooks, analytics, behavior controls |
+| `div4c.txt` | Learning loop, drift detection |
+| `div4d.txt` | Governance, SLOs, proxy strategy |
+| `div4e.txt` | Monkey system (human-in-loop) |
+| `div4f.txt` | Docker support |
+| `div4g.txt` | Pro-grade audit gaps |
+| `div4h.txt` | Full system evaluation harness |
+| `div4i.txt` | Capture/extract refactor |
+| `div4j.txt` | Closeout plan |
+| `div4k.txt` | Orchestrator refactor + QA |
+| `div40.txt` | Agent parallelization plan |
+| `div4i0.txt` | Capture/extract parallelization |
+
+## Educational
+
+- `edu/` folder contains explanatory docs on web crawling concepts:
+  - `00_what_is_a_website.md` - Basics
+  - `01_the_arms_race.md` - Bot detection landscape
+  - `02_anatomy_of_html.md` - HTML structure
+  - `03_dynamic_content.md` - JS rendering, SPAs
+  - `04_infrastructure.md` - CDNs, WAFs
+  - `05_information_theory.md` - Signal vs noise
+
+## Historical / Research
+
+These were design docs from early development. Implementation has evolved.
+
+- `fetch_proposal.txt` - Original fetch+extract design
+- `suggestion.txt` - Early architecture proposal
+- `bettercrawling.txt` - Extraction research notes
+- `lit.txt` - Literature review
+- `notes.txt` - Development log
+- `interactive_crawling.md` - Interaction layer design
+- `interactive_crawling_sprint.md` - Sprint plan for interactions

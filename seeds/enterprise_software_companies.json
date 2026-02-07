@@ -1,0 +1,41 @@
+{
+  "meta": {
+    "description": "Seed list of enterprise software and cloud infrastructure companies for web corpus smoke tests",
+    "created": "2026-02-07",
+    "updated": "2026-02-07",
+    "categories": {
+      "cloud": "Cloud platform and infrastructure",
+      "data": "Data, analytics, and observability",
+      "security": "Cybersecurity and identity",
+      "devtools": "Developer tooling and CI/CD",
+      "collab": "Collaboration and productivity",
+      "crm_erp": "Business systems (CRM/ERP/HR)"
+    }
+  },
+  "carriers": [
+    {"name": "Microsoft", "domain": "microsoft.com", "category": ["cloud", "collab", "crm_erp"], "tier": 1},
+    {"name": "Google Cloud", "domain": "cloud.google.com", "category": ["cloud", "data"], "tier": 1},
+    {"name": "Amazon Web Services", "domain": "aws.amazon.com", "category": ["cloud", "data"], "tier": 1},
+    {"name": "Salesforce", "domain": "salesforce.com", "category": ["crm_erp", "cloud"], "tier": 1},
+    {"name": "Oracle", "domain": "oracle.com", "category": ["cloud", "crm_erp", "data"], "tier": 1},
+    {"name": "SAP", "domain": "sap.com", "category": ["crm_erp", "data"], "tier": 1},
+    {"name": "ServiceNow", "domain": "servicenow.com", "category": ["crm_erp", "cloud"], "tier": 1},
+    {"name": "Workday", "domain": "workday.com", "category": ["crm_erp"], "tier": 1},
+    {"name": "Atlassian", "domain": "atlassian.com", "category": ["devtools", "collab"], "tier": 1},
+    {"name": "GitHub", "domain": "github.com", "category": ["devtools", "collab"], "tier": 1},
+    {"name": "GitLab", "domain": "gitlab.com", "category": ["devtools"], "tier": 2},
+    {"name": "Datadog", "domain": "datadoghq.com", "category": ["data", "devtools"], "tier": 2},
+    {"name": "Snowflake", "domain": "snowflake.com", "category": ["data", "cloud"], "tier": 2},
+    {"name": "MongoDB", "domain": "mongodb.com", "category": ["data", "devtools"], "tier": 2},
+    {"name": "Elastic", "domain": "elastic.co", "category": ["data", "security"], "tier": 2},
+    {"name": "Cloudflare", "domain": "cloudflare.com", "category": ["cloud", "security"], "tier": 2},
+    {"name": "Okta", "domain": "okta.com", "category": ["security"], "tier": 2},
+    {"name": "CrowdStrike", "domain": "crowdstrike.com", "category": ["security"], "tier": 2},
+    {"name": "Palo Alto Networks", "domain": "paloaltonetworks.com", "category": ["security"], "tier": 2},
+    {"name": "Zoom", "domain": "zoom.us", "category": ["collab"], "tier": 2},
+    {"name": "Slack", "domain": "slack.com", "category": ["collab"], "tier": 2},
+    {"name": "Box", "domain": "box.com", "category": ["collab"], "tier": 3},
+    {"name": "Asana", "domain": "asana.com", "category": ["collab"], "tier": 3},
+    {"name": "Notion", "domain": "notion.so", "category": ["collab"], "tier": 3}
+  ]
+}

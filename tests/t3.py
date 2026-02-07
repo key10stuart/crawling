@@ -4,18 +4,26 @@ import subprocess
 import sys
 import json
 from pathlib import Path
+import tempfile
 
 CORPUS_DIR = Path(__file__).parent.parent / "corpus"
 
 def main():
+    companies = [
+        {"name": "Example", "domain": "example.com", "tier": 1},
+        {"name": "ExampleOrg", "domain": "example.org", "tier": 1},
+    ]
+    companies_file = Path(tempfile.gettempdir()) / "t3_companies.json"
+    companies_file.write_text(json.dumps(companies), encoding="utf-8")
+
     result = subprocess.run(
         [
             sys.executable, "scripts/crawl.py",
-            "--tier", "1",
+            "--companies", str(companies_file),
             "--limit", "1",
             "--depth", "1",
             "--fetch-method", "requests",
-            "--quiet",
+            "--delay", "0",
         ],
         capture_output=True,
         text=True,
@@ -53,7 +61,9 @@ def main():
         checks.append(("main_content" in p, "page has main_content"))
 
     # Check raw archive
-    raw_dir = CORPUS_DIR / "raw" / data.get("domain", "unknown")
+    domain = data.get("base_domain") or data.get("domain", "unknown")
+    base_domain = domain.split("/")[0] if "/" in domain else domain
+    raw_dir = CORPUS_DIR / "raw" / base_domain
     checks.append((raw_dir.exists(), f"raw dir exists: {raw_dir.name}"))
     manifest = raw_dir / "manifest.json"
     checks.append((manifest.exists(), "manifest.json exists"))

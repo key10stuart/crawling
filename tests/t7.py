@@ -17,7 +17,7 @@ def main():
         [
             sys.executable, "scripts/eval_extraction.py",
             "--auto",
-            "--limit", "1",
+            "--sample", "1",
         ],
         capture_output=True,
         text=True,

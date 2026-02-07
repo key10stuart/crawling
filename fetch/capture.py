@@ -445,9 +445,19 @@ def capture_page_requests(
 
     try:
         resp = requests.get(url, headers=headers, timeout=config.timeout_ms / 1000, allow_redirects=True)
-        resp.raise_for_status()
 
         timing.fetch_end_ms = time.time() * 1000
+
+        # Stash status code in headers for classifier access
+        # (until CaptureResult gets a formal http_status field from Stream A)
+        resp_headers = dict(resp.headers)
+        resp_headers["_http_status"] = str(resp.status_code)
+
+        # Non-success HTTP statuses: still capture body for classification
+        # but record the status in error field for downstream awareness
+        http_error = None
+        if resp.status_code >= 400:
+            http_error = f"http_{resp.status_code}"
 
         # Check content type
         content_type = resp.headers.get('Content-Type', '').lower()
@@ -463,10 +473,10 @@ def capture_page_requests(
                 captured_at=datetime.now(timezone.utc).isoformat(),
                 fetch_method='requests',
                 timing=timing,
-                headers=dict(resp.headers),
+                headers=resp_headers,
                 cookies=[],
                 html_size_bytes=0,
-                error=f'not_html: {content_type}',
+                error=http_error or f'not_html: {content_type}',
             )
 
         html = resp.text
@@ -479,7 +489,7 @@ def capture_page_requests(
         pages_dir = archive_dir / domain / 'pages'
         pages_dir.mkdir(parents=True, exist_ok=True)
 
-        # Save HTML
+        # Save HTML — even for error pages, for classifier inspection
         html_filename = url_to_filename(final_url, '.html')
         html_path = pages_dir / html_filename
         html_path.write_text(html, encoding='utf-8')
@@ -500,13 +510,20 @@ def capture_page_requests(
             captured_at=datetime.now(timezone.utc).isoformat(),
             fetch_method='requests',
             timing=timing,
-            headers=dict(resp.headers),
+            headers=resp_headers,
             cookies=[{'name': c.name, 'value': c.value, 'domain': c.domain} for c in resp.cookies],
             html_size_bytes=html_size,
-            error=None,
+            error=http_error,
         )
 
     except requests.RequestException as e:
+        # Extract status code from HTTPError if available
+        status_code = None
+        if hasattr(e, 'response') and e.response is not None:
+            status_code = e.response.status_code
+        error_headers = {}
+        if status_code:
+            error_headers["_http_status"] = str(status_code)
         return CaptureResult(
             url=url,
             final_url=url,
@@ -518,10 +535,10 @@ def capture_page_requests(
             captured_at=datetime.now(timezone.utc).isoformat(),
             fetch_method='requests',
             timing=timing,
-            headers={},
+            headers=error_headers,
             cookies=[],
             html_size_bytes=0,
-            error=f'request_error: {type(e).__name__}',
+            error=f'request_error: {type(e).__name__}' + (f' http_{status_code}' if status_code else ''),
         )
 
 
@@ -587,6 +604,20 @@ def write_manifest(
     Returns:
         Path to manifest file
     """
+    manifest_root = archive_dir / domain
+
+    def manifest_rel(path: Path | None) -> str:
+        """Return a stable manifest path for same-domain and redirected captures."""
+        if not path:
+            return ""
+        try:
+            return str(path.relative_to(manifest_root))
+        except ValueError:
+            try:
+                return str(path.relative_to(archive_dir))
+            except ValueError:
+                return str(path)
+
     # Aggregate all assets across pages
     all_assets: dict[str, AssetRef] = {}
     for capture in captures:
@@ -597,7 +628,7 @@ def write_manifest(
 
             # Track which pages reference this asset
             if capture.html_path:
-                rel_path = str(capture.html_path.relative_to(archive_dir / domain))
+                rel_path = manifest_rel(capture.html_path)
                 if rel_path not in all_assets[asset.url].found_on_pages:
                     all_assets[asset.url].found_on_pages.append(rel_path)
 
@@ -610,14 +641,16 @@ def write_manifest(
             PageManifestEntry(
                 url=c.url,
                 final_url=c.final_url,
-                html_path=str(c.html_path.relative_to(archive_dir / domain)) if c.html_path else '',
-                screenshot_path=str(c.screenshot_path.relative_to(archive_dir / domain)) if c.screenshot_path else None,
+                html_path=manifest_rel(c.html_path),
+                screenshot_path=manifest_rel(c.screenshot_path) if c.screenshot_path else None,
                 captured_at=c.captured_at,
                 fetch_method=c.fetch_method,
                 content_hash=c.content_hash,
                 html_size_bytes=c.html_size_bytes,
                 interaction_log=c.interaction_log,
                 expansion_stats=c.expansion_stats,
+                final_access_outcome=asdict(c.access_outcome) if c.access_outcome else None,
+                attempts=[asdict(a) for a in c.attempts],
             )
             for c in captures
             if c.html_path  # Only include successful captures

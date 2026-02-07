@@ -20,6 +20,51 @@ import sys
 from pathlib import Path
 
 
+def _main_text(page: dict) -> str:
+    """Return main content text across legacy and capture-mode shapes."""
+    content = page.get('main_content')
+    if isinstance(content, dict):
+        return content.get('text', '') or ''
+    if isinstance(content, str):
+        return content
+    return ''
+
+
+def _main_word_count(page: dict) -> int:
+    """Return page word count with capture-mode fallbacks."""
+    if isinstance(page.get('word_count'), int):
+        return page.get('word_count', 0)
+
+    content = page.get('main_content')
+    if isinstance(content, dict):
+        if isinstance(content.get('word_count'), int):
+            return content.get('word_count', 0)
+        text = content.get('text', '') or ''
+        return len(text.split())
+
+    text = _main_text(page)
+    return len(text.split()) if text else 0
+
+
+def _site_totals(site: dict) -> tuple[int, int, int]:
+    """Return (total_words, total_images, total_code_blocks) with robust fallbacks."""
+    pages = site.get('pages', [])
+
+    total_words = site.get('total_word_count')
+    if not isinstance(total_words, int) or (total_words == 0 and pages):
+        total_words = sum(_main_word_count(p) for p in pages)
+
+    total_images = site.get('image_count')
+    if not isinstance(total_images, int):
+        total_images = sum(len(p.get('images', [])) for p in pages)
+
+    total_code = site.get('code_block_count')
+    if not isinstance(total_code, int):
+        total_code = sum(len(p.get('code_blocks', [])) for p in pages)
+
+    return total_words, total_images, total_code
+
+
 def load_site(path: Path) -> dict:
     """Load site JSON."""
     with open(path, 'r', encoding='utf-8') as f:
@@ -49,7 +94,7 @@ def export_jsonl(site: dict, output: Path):
                 'product': page.get('product'),
                 'word_count': page.get('word_count'),
                 'full_text': page.get('full_text'),
-                'main_content': page.get('main_content'),
+                'main_content': _main_text(page),
                 'hero_text': page.get('hero_text'),
                 'nav_section': page.get('nav_section'),
                 'is_duplicate': page.get('is_duplicate', False),
@@ -93,8 +138,7 @@ def export_csv(site: dict, output: Path):
             portals = features.get('portals', [])
             api_hints = features.get('api_hints', [])
 
-            main_content = page.get('main_content', '')
-            main_words = len(main_content.split()) if main_content else 0
+            main_words = _main_word_count(page)
 
             writer.writerow({
                 'domain': domain,
@@ -124,6 +168,7 @@ def export_summary(site: dict, output: Path):
     Single JSON with key metrics and aggregated data.
     """
     pages = site.get('pages', [])
+    total_words, total_images, total_code_blocks = _site_totals(site)
 
     # Page type counts
     page_types = {}
@@ -170,11 +215,11 @@ def export_summary(site: dict, output: Path):
 
         'metrics': {
             'total_pages': len(pages),
-            'total_words': site.get('total_word_count', 0),
-            'total_images': site.get('image_count', 0),
-            'total_code_blocks': site.get('code_block_count', 0),
+            'total_words': total_words,
+            'total_images': total_images,
+            'total_code_blocks': total_code_blocks,
             'duplicate_pages': site.get('duplicate_pages', 0),
-            'avg_words_per_page': round(site.get('total_word_count', 0) / len(pages)) if pages else 0,
+            'avg_words_per_page': round(total_words / len(pages)) if pages else 0,
         },
 
         'coverage': {
@@ -198,7 +243,7 @@ def export_summary(site: dict, output: Path):
                 'path': p.get('path'),
                 'title': p.get('title'),
                 'page_type': p.get('page_type'),
-                'word_count': p.get('word_count'),
+                'word_count': _main_word_count(p),
             }
             for p in pages[:10]
         ],
@@ -209,7 +254,7 @@ def export_summary(site: dict, output: Path):
 
     print(f"Exported summary to {output}")
     print(f"  Pages: {len(pages)}")
-    print(f"  Words: {site.get('total_word_count', 0):,}")
+    print(f"  Words: {total_words:,}")
     print(f"  Features: {len(all_portals)} portals, {len(all_integrations)} integrations")
 
 

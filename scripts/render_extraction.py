@@ -74,13 +74,22 @@ def _render_section_tree(tree: dict) -> str:
 
 
 def _render_flat_blocks(page: dict) -> str:
+    def as_text(value) -> str:
+        if isinstance(value, dict):
+            return value.get("text", "") or ""
+        if isinstance(value, str):
+            return value
+        return ""
+
     html = []
-    if page.get("main_content"):
+    main_content = as_text(page.get("main_content"))
+    if main_content:
         html.append("<h2>Main Content (article-focused)</h2>")
-        html.append(f"<pre class=\"full-text\">{escape(page['main_content'])}</pre>")
-    if page.get("full_text"):
+        html.append(f"<pre class=\"full-text\">{escape(main_content)}</pre>")
+    full_text = as_text(page.get("full_text"))
+    if full_text:
         html.append("<h2>Full Text (structural)</h2>")
-        html.append(f"<pre class=\"full-text\">{escape(page['full_text'])}</pre>")
+        html.append(f"<pre class=\"full-text\">{escape(full_text)}</pre>")
 
     images = page.get("images", [])
     if images:
@@ -173,12 +182,18 @@ def _render_tagged_blocks(page: dict) -> str:
 
 
 def _render_html(site: dict, page: dict, show_open_original: bool = True) -> str:
+    main_content = page.get("main_content")
+    if isinstance(main_content, dict):
+        inferred_word_count = main_content.get("word_count", 0) or 0
+    else:
+        inferred_word_count = page.get("word_count", 0) or 0
+
     title = page.get("title") or page.get("url") or "Extraction Report"
     original_url = page.get("url", "")
     stats = {
         "url": original_url,
-        "word_count": page.get("word_count", 0),
-        "page_type": page.get("page_type", ""),
+        "word_count": inferred_word_count,
+        "page_type": page.get("page_type", "captured"),
     }
     section_tree = page.get("section_tree")
 

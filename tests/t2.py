@@ -4,19 +4,27 @@ import subprocess
 import sys
 import json
 from pathlib import Path
+import tempfile
 
 CORPUS_DIR = Path(__file__).parent.parent / "corpus"
 
 def main():
-    # Use a tier-1 carrier that works with requests
+    # Use quick, low-risk domains to keep test runtime bounded.
+    companies = [
+        {"name": "Example", "domain": "example.com", "tier": 1},
+        {"name": "ExampleOrg", "domain": "example.org", "tier": 1},
+    ]
+    companies_file = Path(tempfile.gettempdir()) / "t2_companies.json"
+    companies_file.write_text(json.dumps(companies), encoding="utf-8")
+
     result = subprocess.run(
         [
             sys.executable, "scripts/crawl.py",
-            "--tier", "1",
+            "--companies", str(companies_file),
             "--limit", "1",
             "--depth", "0",
             "--fetch-method", "requests",
-            "--quiet",
+            "--delay", "0",
         ],
         capture_output=True,
         text=True,

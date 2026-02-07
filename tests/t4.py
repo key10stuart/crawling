@@ -4,6 +4,7 @@ import subprocess
 import sys
 import json
 from pathlib import Path
+import tempfile
 
 CORPUS_DIR = Path(__file__).parent.parent / "corpus"
 
@@ -12,15 +13,23 @@ def main():
     print("  NOTE: This test requires GUI access for Playwright")
     print("  Running with --fetch-method requests as fallback...\n")
 
+    companies = [
+        {"name": "Example", "domain": "example.com", "tier": 1},
+        {"name": "ExampleOrg", "domain": "example.org", "tier": 1},
+        {"name": "IANA", "domain": "iana.org", "tier": 1},
+    ]
+    companies_file = Path(tempfile.gettempdir()) / "t4_companies.json"
+    companies_file.write_text(json.dumps(companies), encoding="utf-8")
+
     result = subprocess.run(
         [
             sys.executable, "scripts/crawl.py",
-            "--tier", "1",
+            "--companies", str(companies_file),
             "--limit", "3",
             "-j", "2",
             "--depth", "0",
             "--fetch-method", "requests",
-            "--quiet",
+            "--delay", "0",
         ],
         capture_output=True,
         text=True,

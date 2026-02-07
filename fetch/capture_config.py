@@ -10,6 +10,32 @@ from pathlib import Path
 
 
 @dataclass
+class AccessOutcome:
+    """Classification result for a single access attempt/page."""
+    outcome: str
+    reason: str
+    http_status: int | None = None
+    detected_markers: list[str] = field(default_factory=list)
+    waf_hint: str | None = None
+    challenge_detected: bool = False
+    word_count_estimate: int = 0
+    link_density_estimate: float | None = None
+    final_url: str | None = None
+
+
+@dataclass
+class AccessAttempt:
+    """Attempt telemetry for access strategy execution."""
+    attempt_index: int
+    strategy: str
+    started_at: str
+    duration_ms: int
+    outcome: AccessOutcome
+    capture_error: str | None = None
+    html_size_bytes: int | None = None
+
+
+@dataclass
 class CaptureConfig:
     """Configuration for page capture."""
 
@@ -93,6 +119,8 @@ class CaptureResult:
     error: str | None = None
     interaction_log: list[dict] = field(default_factory=list)
     expansion_stats: dict = field(default_factory=dict)
+    access_outcome: AccessOutcome | None = None
+    attempts: list[AccessAttempt] = field(default_factory=list)
 
 
 @dataclass
@@ -108,6 +136,8 @@ class PageManifestEntry:
     html_size_bytes: int
     interaction_log: list[dict] = field(default_factory=list)
     expansion_stats: dict = field(default_factory=dict)
+    final_access_outcome: dict | None = None
+    attempts: list[dict] = field(default_factory=list)
 
 
 @dataclass

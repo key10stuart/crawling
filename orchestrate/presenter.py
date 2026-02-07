@@ -23,6 +23,50 @@ def resolve_fetch_method(captures: list) -> str:
     return "mixed"
 
 
+def _build_access_summary(access_telemetry: list[dict]) -> dict:
+    """
+    Build site-level access summary from per-URL attempt telemetry.
+
+    Args:
+        access_telemetry: list of per-URL dicts with keys:
+            - url: str
+            - final_outcome: str (outcome class)
+            - attempts: list[dict] (per-attempt records)
+            - escalations_used: list[str] (strategies attempted)
+
+    Returns:
+        Dict with outcome_counts and escalations_used summaries.
+    """
+    if not access_telemetry:
+        return {}
+
+    outcome_counts: dict[str, int] = {}
+    strategies_used: dict[str, int] = {}
+    total_attempts = 0
+
+    for entry in access_telemetry:
+        outcome = entry.get("final_outcome", "unknown")
+        outcome_counts[outcome] = outcome_counts.get(outcome, 0) + 1
+
+        attempts = entry.get("attempts", [])
+        total_attempts += len(attempts)
+
+        for strategy in entry.get("escalations_used", []):
+            strategies_used[strategy] = strategies_used.get(strategy, 0) + 1
+
+    successes = outcome_counts.get("success_real_content", 0)
+    total_urls = len(access_telemetry)
+
+    return {
+        "outcome_counts": outcome_counts,
+        "escalations_used": strategies_used,
+        "total_urls_attempted": total_urls,
+        "total_attempts": total_attempts,
+        "effective_success_rate": round(successes / total_urls, 3) if total_urls else 0,
+        "average_attempts_per_url": round(total_attempts / total_urls, 2) if total_urls else 0,
+    }
+
+
 def build_capture_site_data(
     carrier: dict,
     captures: list,
@@ -30,6 +74,7 @@ def build_capture_site_data(
     attempted_count: int,
     site_profile: dict | None = None,
     snapshot_date: str | None = None,
+    access_telemetry: list[dict] | None = None,
 ) -> dict:
     domain = carrier["domain"]
     base_domain = domain.split("/")[0] if "/" in domain else domain
@@ -80,6 +125,11 @@ def build_capture_site_data(
         "base_domain": base_domain,
     }
 
+    # Div 4k1: access telemetry
+    if access_telemetry:
+        site_data["access_telemetry"] = access_telemetry
+        site_data["access_summary"] = _build_access_summary(access_telemetry)
+
     return site_data
 
 
@@ -105,6 +155,7 @@ def get_word_count(site_data: dict) -> int:
 
 
 __all__ = [
+    "_build_access_summary",
     "build_capture_site_data",
     "get_page_count",
     "get_word_count",

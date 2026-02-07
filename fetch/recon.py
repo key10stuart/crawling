@@ -43,6 +43,9 @@ class ReconResult:
     framework: str | None
     notes: list[str]
     fetched_at: str
+    # Div 4k1: defense hints for access policy
+    waf_detected: bool = False
+    likely_bot_defended: bool = False
 
 
 @dataclass
@@ -82,9 +85,30 @@ _CHALLENGE_MARKERS = [
     'please wait',
     'ddos protection',
     'cf-browser-verification',
-    'access denied',
     'captcha',
     'sg-captcha',
+    'verify you are human',
+    'security check required',
+    'one more step',
+    'ray id',
+    'performance & security by cloudflare',
+    'attention required',
+    'enable javascript and cookies to continue',
+]
+
+_SOFT_BLOCK_MARKERS = [
+    'access denied',
+    'your request has been blocked',
+    'request blocked',
+    'forbidden',
+    'security check',
+    'unusual traffic',
+    'too many requests',
+    'rate limit',
+    'automated access',
+    'bot detected',
+    'suspected automated',
+    'please verify',
 ]
 
 
@@ -100,6 +124,14 @@ def _detect_cdn(headers: dict) -> tuple[str | None, str | None]:
         return "akamai", "akamai"
     if 'x-fastly' in lower or 'fastly' in server:
         return "fastly", "fastly"
+    if 'x-sucuri' in lower or 'sucuri' in server:
+        return "sucuri", "sucuri"
+    if 'x-datadome' in lower or 'datadome' in server:
+        return "datadome", "datadome"
+    if 'server' in lower and 'imperva' in server:
+        return "imperva", "imperva"
+    if 'x-distil' in lower:
+        return "distil", "distil"
     if 'x-cdn' in lower:
         return lower.get('x-cdn'), None
     return None, None
@@ -110,6 +142,34 @@ def _detect_challenge(html: str | None) -> bool:
         return False
     html_lower = html.lower()
     return any(marker in html_lower for marker in _CHALLENGE_MARKERS)
+
+
+def _detect_soft_block(html: str | None, status_code: int | None) -> bool:
+    """Detect soft blocks: HTTP 200 but content is a deny page."""
+    if status_code and status_code in (403, 429, 451):
+        return True
+    if not html:
+        return False
+    html_lower = html.lower()
+    return any(marker in html_lower for marker in _SOFT_BLOCK_MARKERS)
+
+
+def _infer_bot_defense(
+    cdn: str | None,
+    waf: str | None,
+    challenge: bool,
+    soft_block: bool,
+    status_code: int | None,
+) -> tuple[bool, bool]:
+    """Infer waf_detected and likely_bot_defended from signals."""
+    waf_detected = waf is not None
+    likely_bot_defended = (
+        challenge
+        or soft_block
+        or waf_detected
+        or (status_code in (403, 429, 451) if status_code else False)
+    )
+    return waf_detected, likely_bot_defended
 
 
 def _cache_key(url: str) -> str:
@@ -143,7 +203,17 @@ def recon_site(url: str, cache_path: Path | None = None, ttl_days: int = 7) -> R
         if cached:
             try:
                 fetched_at = datetime.fromisoformat(cached.get("fetched_at"))
-                if now - fetched_at < timedelta(days=ttl_days):
+                age = now - fetched_at
+                # Don't trust stale error entries — use shorter TTL
+                cached_notes = cached.get("notes", [])
+                has_error = any(
+                    n.startswith("recon_error:") for n in cached_notes
+                ) if cached_notes else False
+                effective_ttl = timedelta(days=1) if has_error else timedelta(days=ttl_days)
+                if age < effective_ttl:
+                    # Backfill new fields for old cache entries
+                    cached.setdefault("waf_detected", False)
+                    cached.setdefault("likely_bot_defended", False)
                     return ReconResult(**cached)
             except Exception:
                 pass
@@ -167,6 +237,7 @@ def recon_site(url: str, cache_path: Path | None = None, ttl_days: int = 7) -> R
 
     cdn, waf = _detect_cdn(resp_headers)
     challenge = _detect_challenge(html)
+    soft_block = _detect_soft_block(html, status_code)
 
     js_required = False
     js_confidence = None
@@ -178,6 +249,10 @@ def recon_site(url: str, cache_path: Path | None = None, ttl_days: int = 7) -> R
         js_confidence = js_result.confidence
         js_signals = js_result.signals
         framework = js_result.framework
+
+    waf_detected, likely_bot_defended = _infer_bot_defense(
+        cdn, waf, challenge, soft_block, status_code,
+    )
 
     result = ReconResult(
         domain=_cache_key(url),
@@ -193,6 +268,8 @@ def recon_site(url: str, cache_path: Path | None = None, ttl_days: int = 7) -> R
         framework=framework,
         notes=notes,
         fetched_at=now.isoformat(),
+        waf_detected=waf_detected,
+        likely_bot_defended=likely_bot_defended,
     )
 
     with _CACHE_LOCK:

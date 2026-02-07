@@ -41,7 +41,7 @@ from orchestrate.config import (
     apply_run_config,
     load_fetch_profiles,
 )
-from orchestrate.fetch_spec import resolve_fetch_spec, _normalize_method
+from orchestrate.fetch_spec import resolve_fetch_spec, extract_access_hints, _normalize_method
 from orchestrate.presenter import (
     build_capture_site_data,
     get_page_count,
@@ -50,11 +50,28 @@ from orchestrate.presenter import (
 )
 
 from fetch.capture import capture_page, write_manifest
-from fetch.capture_config import CaptureConfig, CaptureResult
+from fetch.capture_config import CaptureConfig, CaptureResult, AccessAttempt
+from fetch.access_classifier import classify_capture_result, outcome_as_dict
 from fetch.extractor import extract_from_capture
 from fetch.recon import recon_site
 from fetch.robots import RobotsChecker
 from fetch.sitemap import discover_sitemap, parse_sitemap
+from fetch.access_policy import (
+    AccessPlan,
+    build_access_plan,
+    compute_backoff_delay,
+    decide_next_strategy,
+    get_domain_playbook,
+    load_playbooks,
+    strategy_to_capture_kwargs,
+)
+
+# Monkey queue for terminal failures
+try:
+    from fetch.monkey import add_to_monkey_queue
+    _MONKEY_AVAILABLE = True
+except ImportError:
+    _MONKEY_AVAILABLE = False
 
 # Project paths (from orchestrate.config)
 PROJECT_ROOT = oconfig.PROJECT_ROOT
@@ -66,6 +83,32 @@ SITES_DIR = oconfig.SITES_DIR
 # Crawl settings
 DEFAULT_DEPTH = 2
 REQUEST_DELAY = 3.0  # seconds between requests (polite crawling)
+
+
+def _build_start_url(domain: str) -> str:
+    """Normalize seed domain into a crawlable HTTPS URL.
+
+    Keep explicit subdomains as-is (e.g., cloud.google.com), but default bare
+    two-label domains to www.<domain> for compatibility with existing seeds.
+    """
+    value = domain.strip()
+    if value.startswith(("http://", "https://")):
+        return value
+
+    if "/" in value:
+        host, path = value.split("/", 1)
+    else:
+        host, path = value, ""
+
+    # Preserve subdomains and existing www hosts; only prefix bare domains.
+    if host.startswith("www.") or host.count(".") > 1:
+        resolved_host = host
+    else:
+        resolved_host = f"www.{host}"
+
+    if path:
+        return f"https://{resolved_host}/{path}"
+    return f"https://{resolved_host}"
 
 
 def _resolve_capture_config(fetch_spec: dict, args: argparse.Namespace) -> CaptureConfig:
@@ -154,23 +197,130 @@ def _build_site_profile(
     }
 
 
+def _make_capture_config_for_strategy(
+    strategy: str,
+    plan: AccessPlan,
+    base_config: CaptureConfig,
+) -> CaptureConfig:
+    """Build a CaptureConfig for a specific escalation strategy."""
+    kwargs = strategy_to_capture_kwargs(strategy, plan)
+    is_js = strategy != "requests"
+
+    return CaptureConfig(
+        js_required=kwargs.get("js_required", base_config.js_required),
+        stealth=kwargs.get("stealth", base_config.stealth),
+        headless=kwargs.get("headless", base_config.headless),
+        timeout_ms=base_config.timeout_ms,
+        expand_lazy_content=base_config.expand_lazy_content if is_js else False,
+        scroll_to_bottom=base_config.scroll_to_bottom if is_js else False,
+        click_accordions=base_config.click_accordions if is_js else False,
+        take_screenshot=base_config.take_screenshot if is_js else False,
+        no_js_fallback=True,  # We handle fallback via policy engine now
+        cookie_ref=base_config.cookie_ref,
+        cookies_dir=base_config.cookies_dir,
+    )
+
+
+def _capture_url_adaptive(
+    url: str,
+    plan: AccessPlan,
+    base_config: CaptureConfig,
+    recon,
+    domain_playbook: dict | None,
+    escalation_mode: str,
+) -> tuple[CaptureResult | None, list[AccessAttempt], str]:
+    """
+    Bounded attempt loop for a single URL with adaptive escalation.
+
+    Returns (final_capture_or_None, attempt_records, final_outcome_str).
+    """
+    strategy = plan.initial_strategy
+    attempt_records: list[AccessAttempt] = []
+    same_strategy_retries = 0
+    last_strategy = None
+    final_capture = None
+    final_outcome_str = "unknown_failure"
+
+    for attempt_idx in range(plan.max_attempts):
+        attempt_start = datetime.now(timezone.utc)
+
+        config = _make_capture_config_for_strategy(strategy, plan, base_config)
+        result = capture_page(url, config, RAW_DIR)
+        outcome = classify_capture_result(result, recon=recon)
+
+        attempt_end = datetime.now(timezone.utc)
+        duration_ms = int((attempt_end - attempt_start).total_seconds() * 1000)
+
+        attempt = AccessAttempt(
+            attempt_index=attempt_idx + 1,
+            strategy=strategy,
+            started_at=attempt_start.isoformat(),
+            duration_ms=duration_ms,
+            outcome=outcome,
+            capture_error=result.error,
+            html_size_bytes=result.html_size_bytes,
+        )
+        attempt_records.append(attempt)
+        final_outcome_str = outcome.outcome
+
+        # Success — done
+        if outcome.outcome == "success_real_content":
+            result.access_outcome = outcome
+            result.attempts = attempt_records
+            return result, attempt_records, final_outcome_str
+
+        # Static mode — no escalation
+        if escalation_mode == "static":
+            break
+
+        # Track same-strategy retries
+        if strategy == last_strategy:
+            same_strategy_retries += 1
+        else:
+            same_strategy_retries = 0
+        last_strategy = strategy
+
+        # Ask policy engine for next move
+        next_strategy = decide_next_strategy(
+            current_strategy=strategy,
+            outcome_str=outcome.outcome,
+            attempt_index=attempt_idx,
+            plan=plan,
+            same_strategy_retries=same_strategy_retries,
+            domain_playbook=domain_playbook,
+        )
+
+        if next_strategy is None:
+            break
+
+        # Backoff before retry
+        delay = compute_backoff_delay(attempt_idx, plan, outcome.outcome)
+        time.sleep(delay)
+        strategy = next_strategy
+
+    # Terminal: return last result if it at least has HTML
+    if result.html_path and not result.error:
+        final_capture = result
+    if final_capture:
+        final_capture.access_outcome = outcome
+        final_capture.attempts = attempt_records
+    return final_capture, attempt_records, final_outcome_str
+
+
 def capture_site(
     carrier: dict,
     args: argparse.Namespace,
     cfg: dict,
     provided_flags: set[str],
     fetch_profiles: dict,
+    playbooks: dict | None = None,
 ) -> dict:
     domain = carrier["domain"]
     base_domain = domain.split("/")[0] if "/" in domain else domain
 
     print(f"\nCapturing {carrier['name']} ({domain})")
 
-    if "/" in domain:
-        base, path = domain.split("/", 1)
-        start_url = f"https://www.{base}/{path}"
-    else:
-        start_url = f"https://www.{domain}"
+    start_url = _build_start_url(domain)
 
     # Recon FIRST to detect SPA/JS requirements
     recon = recon_site(start_url)
@@ -182,6 +332,24 @@ def capture_site(
     if recon and recon.js_required and resolved_method in (None, "requests"):
         print(f"  [recon] JS required ({recon.framework or 'SPA signals'}) → upgrading to js")
         resolved_method = "js"
+
+    # Div 4k1: build access plan from layered config
+    domain_playbook = get_domain_playbook(domain, playbooks)
+    access_hints = extract_access_hints(fetch_spec)
+    cli_overrides = {}
+    if hasattr(args, "access_max_attempts") and args.access_max_attempts:
+        cli_overrides["access_max_attempts"] = args.access_max_attempts
+    if hasattr(args, "access_escalation_mode") and args.access_escalation_mode:
+        cli_overrides["access_escalation_mode"] = args.access_escalation_mode
+    access_plan = build_access_plan(
+        recon=recon,
+        fetch_spec=access_hints,
+        domain_playbook=domain_playbook,
+        cli_overrides=cli_overrides if cli_overrides else None,
+    )
+    escalation_mode = getattr(args, "access_escalation_mode", "adaptive")
+    print(f"  [access] plan: {access_plan.initial_strategy} "
+          f"(max_attempts={access_plan.max_attempts}, mode={escalation_mode})")
 
     capture_config = _resolve_capture_config(fetch_spec, args)
 
@@ -202,17 +370,68 @@ def capture_site(
     print(f"  Found {len(urls_to_capture)} URLs to capture")
 
     captures: list[CaptureResult] = []
+    all_attempts_by_url: list[dict] = []
+    terminal_failures: list[dict] = []
+
     for i, url in enumerate(urls_to_capture):
-        print(f"  [{i+1}/{len(urls_to_capture)}] {urlparse(url).path or '/'}", end="", flush=True)
-        result = capture_page(url, capture_config, RAW_DIR)
+        url_path = urlparse(url).path or '/'
+        print(f"  [{i+1}/{len(urls_to_capture)}] {url_path}", end="", flush=True)
 
-        if result.error:
-            print(f" ✗ {result.error}")
+        final_capture, attempt_records, final_outcome = _capture_url_adaptive(
+            url=url,
+            plan=access_plan,
+            base_config=capture_config,
+            recon=recon,
+            domain_playbook=domain_playbook,
+            escalation_mode=escalation_mode,
+        )
+
+        strategies_used = list(dict.fromkeys(a.strategy for a in attempt_records))
+        num_attempts = len(attempt_records)
+
+        if final_outcome == "success_real_content" and final_capture:
+            kb = final_capture.html_size_bytes // 1024
+            suffix = f" ({num_attempts} attempts)" if num_attempts > 1 else ""
+            print(f" ✓ {kb}KB{suffix}")
+            captures.append(final_capture)
         else:
-            print(f" ✓ {result.html_size_bytes//1024}KB")
-            captures.append(result)
+            print(f" ✗ {final_outcome} ({num_attempts} attempts, tried: {','.join(strategies_used)})")
+            terminal_failures.append({
+                "url": url,
+                "final_outcome": final_outcome,
+                "strategies_tried": strategies_used,
+            })
 
-        time.sleep(_resolve_capture_delay(fetch_spec, REQUEST_DELAY))
+        all_attempts_by_url.append({
+            "url": url,
+            "final_outcome": final_outcome,
+            "attempts": [asdict(a) for a in attempt_records],
+            "escalations_used": strategies_used,
+        })
+
+        # Delay between URLs (base delay, not escalation backoff)
+        if i < len(urls_to_capture) - 1:
+            time.sleep(_resolve_capture_delay(fetch_spec, REQUEST_DELAY))
+
+    # Monkey auto-enqueue for terminal failures
+    if terminal_failures and _MONKEY_AVAILABLE:
+        failure_rate = len(terminal_failures) / len(urls_to_capture) if urls_to_capture else 0
+        if failure_rate > 0.5 or len(terminal_failures) >= 3:
+            try:
+                all_strategies = []
+                for tf in terminal_failures:
+                    all_strategies.extend(tf.get("strategies_tried", []))
+                all_strategies = list(set(all_strategies))
+                add_to_monkey_queue(
+                    domain=base_domain,
+                    reason=f"adaptive_access_terminal: {len(terminal_failures)}/{len(urls_to_capture)} failed",
+                    tier=carrier.get("tier"),
+                    attempts_auto=all_strategies,
+                )
+                print(f"  [monkey] Queued {base_domain} for manual attention "
+                      f"({len(terminal_failures)} terminal failures)")
+            except Exception as exc:
+                print(f"  [monkey] Failed to enqueue: {exc}")
 
     site_profile = _build_site_profile(
         recon,
@@ -238,12 +457,21 @@ def capture_site(
                 interaction_log=capture.interaction_log,
                 expansion_stats=capture.expansion_stats,
             )
+            # Re-classify with extraction context for final accuracy
+            outcome = classify_capture_result(capture, extracted_page=extraction, recon=recon)
+            capture.access_outcome = outcome
+            if capture.attempts:
+                capture.attempts[-1].outcome = outcome
+            extraction["final_access_outcome"] = outcome_as_dict(outcome)
+            extraction["attempts"] = [asdict(a) for a in capture.attempts]
             extracted_pages.append(extraction)
         except Exception as exc:
             extracted_pages.append(
                 {
                     "url": capture.url,
                     "error": f"extract_failed:{type(exc).__name__}",
+                    "final_access_outcome": outcome_as_dict(getattr(capture, "access_outcome", None)),
+                    "attempts": [asdict(a) for a in getattr(capture, "attempts", [])],
                     "archive": {
                         "html_path": str(capture.html_path) if capture.html_path else None,
                         "screenshot_path": str(capture.screenshot_path) if capture.screenshot_path else None,
@@ -257,10 +485,13 @@ def capture_site(
         extracted_pages=extracted_pages,
         attempted_count=len(urls_to_capture),
         site_profile=site_profile,
+        access_telemetry=all_attempts_by_url,
     )
 
     write_site_json(site_data, SITES_DIR)
-    print(f"  Done: {len(captures)} pages captured, {site_data['stats']['total_html_kb']}KB")
+    success_count = sum(1 for t in all_attempts_by_url if t["final_outcome"] == "success_real_content")
+    print(f"  Done: {success_count}/{len(urls_to_capture)} URLs succeeded, "
+          f"{len(captures)} pages captured, {site_data['stats']['total_html_kb']}KB")
     return site_data
 
 
@@ -292,6 +523,12 @@ def main():
                         help="Run in Docker container with Xvfb (invisible browser windows)")
     parser.add_argument("--docker-rebuild", action="store_true",
                         help="Force rebuild Docker image before running")
+    # Div 4k1: adaptive access flags
+    parser.add_argument("--access-max-attempts", type=int, default=3,
+                        help="Max capture attempts per URL before giving up (default: 3)")
+    parser.add_argument("--access-escalation-mode", choices=["adaptive", "static"],
+                        default="adaptive",
+                        help="Access escalation mode: adaptive (closed-loop) or static (single attempt)")
     args = parser.parse_args()
 
     # Handle --docker flag: re-invoke via docker_crawl.sh
@@ -321,6 +558,7 @@ def main():
     args = apply_run_config(args, cfg, provided_flags)
 
     fetch_profiles = load_fetch_profiles()
+    playbooks = load_playbooks()
 
     # Configure output directories per run if requested
     global RAW_DIR, EXTRACTED_DIR, SITES_DIR
@@ -384,7 +622,7 @@ def main():
 
     def site_executor(carrier):
         try:
-            return capture_site(carrier, args, cfg, provided_flags, fetch_profiles)
+            return capture_site(carrier, args, cfg, provided_flags, fetch_profiles, playbooks=playbooks)
         except Exception as exc:
             if not (args.progress and actual_jobs > 1):
                 print(f"  FAILED {carrier['domain']}: {exc}")

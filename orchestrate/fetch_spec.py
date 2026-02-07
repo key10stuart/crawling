@@ -41,6 +41,13 @@ def _build_cli_fetch_spec(args: argparse.Namespace, provided_flags: set[str]) ->
         spec["js_fallback"] = args.js_fallback
     if "js_auto" in provided_flags:
         spec["js_auto"] = args.js_auto
+    # Div 4k1: access policy hints
+    if "allow_stealth" in provided_flags:
+        spec["allow_stealth"] = getattr(args, "allow_stealth", True)
+    if "allow_visible" in provided_flags:
+        spec["allow_visible"] = getattr(args, "allow_visible", False)
+    if "patient_on_block" in provided_flags:
+        spec["patient_on_block"] = getattr(args, "patient_on_block", False)
     return spec
 
 
@@ -156,11 +163,31 @@ def _build_fetch_config(method: str, base_config: dict) -> FetchConfig:
     )
 
 
+def extract_access_hints(fetch_spec: dict) -> dict:
+    """
+    Extract access-policy-relevant hints from a resolved fetch spec.
+
+    Returns a dict suitable for passing as fetch_spec to
+    fetch.access_policy.build_access_plan().
+    """
+    hints = {}
+    if "method" in fetch_spec:
+        hints["method"] = fetch_spec["method"]
+    for key in (
+        "patient", "slow_drip", "delay",
+        "allow_stealth", "allow_visible", "patient_on_block",
+    ):
+        if key in fetch_spec:
+            hints[key] = fetch_spec[key]
+    return hints
+
+
 __all__ = [
     "_merge_specs",
     "_build_cli_fetch_spec",
     "_build_run_fetch_spec",
     "resolve_fetch_spec",
+    "extract_access_hints",
     "FETCH_METHOD_LADDER",
     "_normalize_method",
     "_build_fetch_config",

@@ -1,0 +1,13 @@
+# Smoke run config for non-trucking seed set
+# Usage:
+#   python scripts/crawl.py --run-config configs/enterprise_software_smoke.yaml
+#   ./scripts/docker_crawl.sh --run-config configs/enterprise_software_smoke.yaml
+
+companies: seeds/enterprise_software_companies.json
+tier: 1
+limit: 8
+fetch_method: requests
+depth: 2
+jobs: 2
+freshen: 7d
+progress: true
