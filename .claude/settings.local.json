@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(conda run -n pt1 python3:*)",
+      "Bash(conda run:*)",
+      "WebSearch",
+      "Bash(python:*)",
+      "Bash(ls:*)",
+      "Bash(python3:*)"
+    ]
+  }
+}

@@ -15,6 +15,10 @@ python scripts/crawl.py --domain example.com --depth 2 --fetch-method requests
 # Tier crawl with parallel workers
 python scripts/crawl.py --tier 1 --limit 5 -j 4 --progress
 
+# Adaptive access controls (Div 4k1)
+python scripts/crawl.py --tier 1 --access-max-attempts 2
+python scripts/crawl.py --tier 1 --access-escalation-mode static
+
 # Check access metrics
 python scripts/access_report.py
 python scripts/access_report.py --tier 1

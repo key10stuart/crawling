@@ -51,6 +51,7 @@ Historical implementation plans. Status markers may be stale — check `stateofp
 | `div4i.txt` | Capture/extract refactor |
 | `div4j.txt` | Closeout plan |
 | `div4k.txt` | Orchestrator refactor + QA |
+| `div4k1.md` | Closed-loop access control (div4k1 follow-on) |
 | `div40.txt` | Agent parallelization plan |
 | `div4i0.txt` | Capture/extract parallelization |
 

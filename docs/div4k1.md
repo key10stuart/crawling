@@ -1,7 +1,7 @@
 Div 4k1: Intelligent Access (Closed-Loop Access Control)
 ========================================================
 
-Status: Draft for implementation
+Status: In progress (core implementation landed; rollout validation/tuning ongoing)
 Date: 2026-02-07
 Purpose: Convert access pipeline from open-loop to adaptive closed-loop execution.
 
@@ -315,13 +315,13 @@ PART 10: ACCEPTANCE CHECKLIST
 ===============================================================================
 
 Code readiness:
-- [ ] New modules added: access_classifier, access_policy
-- [ ] crawl.py attempt loop implemented with ceilings
-- [ ] manifest/site JSON includes attempt telemetry
-- [ ] monkey auto-enqueue wired for terminal failures
+- [x] New modules added: access_classifier, access_policy
+- [x] crawl.py attempt loop implemented with ceilings
+- [x] manifest/site JSON includes attempt telemetry
+- [x] monkey auto-enqueue wired for terminal failures
 
 Test readiness:
-- [ ] New unit/integration tests passing
+- [x] New unit tests passing (`test_access_classifier.py`, `test_access_policy.py`)
 - [ ] Existing t1/t6/t8 passing
 - [ ] Pytest capture/extraction suite passing
 
@@ -331,9 +331,9 @@ Behavior readiness:
 - [ ] No unbounded retries observed
 
 Docs readiness:
-- [ ] access_runbook updated with adaptive flags
-- [ ] docs/INDEX.md references div4k1
-- [ ] stateofplay updated with rollout status
+- [x] access_runbook updated with adaptive flags
+- [x] docs/INDEX.md references div4k1
+- [x] stateofplay updated with rollout status
 
 
 ===============================================================================
