@@ -17,7 +17,7 @@ import requests
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 TARGET_FILE = PROJECT_ROOT / "docs" / "targetx.txt"
 OUTPUT_DIR = PROJECT_ROOT / "corpus" / "tweets"
-OUTPUT_CSV = OUTPUT_DIR / "tweets_extracted.csv"
+OUTPUT_CSV = OUTPUT_DIR / "tweets_extracted.tsv"
 PROGRESS_FILE = OUTPUT_DIR / ".pull_progress.json"
 
 BATCH_SIZE = 100
@@ -142,7 +142,7 @@ def run():
         write_header = True
 
     csvfile = open(OUTPUT_CSV, mode, newline="", encoding="utf-8")
-    writer = csv.writer(csvfile)
+    writer = csv.writer(csvfile, delimiter="\t", quoting=csv.QUOTE_MINIMAL)
     if write_header:
         writer.writerow(["saved_at", "url", "user", "tag", "text"])
 
@@ -167,7 +167,7 @@ def run():
                 t["url"],
                 t["user"],
                 "",  # tag - blank for now
-                text,
+                text.replace("\n", "\\n") if text else "",
             ])
 
             if method == "failed":
